@@ -21,6 +21,25 @@
       onCreate = {
         npm-install = "npm install"; # Installs all project dependencies from package.json.
       };
+
+      # Commands to run every time the workspace is started or restarted.
+      onStart = {
+        dev-server = "npm run dev"; # Starts the Next.js development server.
+      };
+    };
+
+    # Configure the web preview for the application.
+    previews = {
+      enable = true;
+      previews = {
+        # Define a preview named "web".
+        web = {
+          # Command to start the application and listen on the correct port.
+          # The `$PORT` variable is dynamically assigned by the environment.
+          command = ["npm" "run" "dev" "--" "--port" "$PORT"];
+          manager = "web"; # Use the standard web preview manager.
+        };
+      };
     };
   };
 }
