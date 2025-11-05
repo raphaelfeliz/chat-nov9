@@ -33,8 +33,8 @@ export class TriageMachine {
             stateID: "root",
             question: "O que você busca?",
             options: [
-                { label: "Janela", value: "janela", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/janela_de_correr_2folhas_persiana-integrada_motorizada.webp" },
-                { label: "Porta", value: "porta", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_correr_2folhas_persiana_integrada_motorizada.webp" },
+                { label: "Janela", value: "janela", picture: "/assets/images/janela_de_correr_2folhas_manual.webp" },
+                { label: "Porta", value: "porta", picture: "/assets/images/porta_de_correr_2folhas_persiana_integrada_motorizada.webp" },
             ]
         };
     }
@@ -44,8 +44,8 @@ export class TriageMachine {
             stateID: "askJanelaSystem",
             question: "Qual o sistema de abertura da janela?",
             options: [
-                { label: "Correr", value: "janela-correr", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/janela_de_correr_2folhas_persiana-integrada_motorizada.webp" },
-                { label: "Maxim-ar", value: "maxim-ar", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/janela_maximar_1modulo.webp" }
+                { label: "Correr", value: "janela-correr", picture: "/assets/images/janela_de_correr_2folhas_persiana-integrada_motorizada.webp" },
+                { label: "Maxim-ar", value: "maxim-ar", picture: "/assets/images/janela_maximar_1modulo.webp" }
             ]
         };
     }
@@ -55,8 +55,8 @@ export class TriageMachine {
             stateID: "askPortaSystem",
             question: "Qual o sistema de abertura da porta?",
             options: [
-                { label: "Correr", value: "porta-correr", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_correr_2folhas_persiana_integrada_motorizada.webp" },
-                { label: "Giro", value: "giro", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_giro_1folha_lambris.webp" }
+                { label: "Correr", value: "porta-correr", picture: "/assets/images/porta_de_correr_2folhas_persiana_integrada_motorizada.webp" },
+                { label: "Giro", value: "giro", picture: "/assets/images/porta_de_giro_1folha_lambris.webp" }
             ]
         };
     }
@@ -66,8 +66,8 @@ export class TriageMachine {
             stateID: "askJanelaCorrerPersiana",
             question: "Você quer com persiana integrada?",
             options: [
-                { label: "Sim", value: "sim", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/janela_de_correr_2folhas_persiana-integrada_motorizada.webp" },
-                { label: "Não", value: "nao", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/janela_de_correr_2folhas_manual.webp" }
+                { label: "Sim", value: "sim", picture: "/assets/images/janela_de_correr_2folhas_persiana-integrada_motorizada.webp" },
+                { label: "Não", value: "nao", picture: "/assets/images/janela_de_correr_2folhas_manual.webp" }
             ]
         };
     }
@@ -77,9 +77,9 @@ export class TriageMachine {
             stateID: "askJanelaMaximarFolhas",
             question: "Com quantos módulos (folhas)?",
             options: [
-                { label: "1 Módulo", value: "1", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/janela_maximar_1modulo.webp", sku: "J-MAX-VIDRO-008", url: "/product/J-MAX-VIDRO-008" },
-                { label: "2 Módulos", value: "2", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/janela_maximar_2modulos.webp", sku: "J-MAX-VIDRO-009", url: "/product/J-MAX-VIDRO-009" },
-                { label: "3 Módulos", value: "3", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/janela_maximar_3modulos.webp", sku: "J-MAX-VIDRO-010", url: "/product/J-MAX-VIDRO-010" }
+                { label: "1 Módulo", value: "1", picture: "/assets/images/janela_maximar_1modulo.webp", sku: "J-MAX-VIDRO-008", url: "/product/J-MAX-VIDRO-008" },
+                { label: "2 Módulos", value: "2", picture: "/assets/images/janela_maximar_2modulos.webp", sku: "J-MAX-VIDRO-009", url: "/product/J-MAX-VIDRO-009" },
+                { label: "3 Módulos", value: "3", picture: "/assets/images/janela_maximar_3modulos.webp", sku: "J-MAX-VIDRO-010", url: "/product/J-MAX-VIDRO-010" }
             ]
         };
     }
@@ -89,8 +89,8 @@ export class TriageMachine {
             stateID: "askPortaCorrerPersiana",
             question: "Você quer com persiana integrada?",
             options: [
-                { label: "Sim", value: "sim", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_correr_2folhas_persiana_integrada_motorizada.webp" },
-                { label: "Não", value: "nao", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_correr_2folhas_manual.webp" }
+                { label: "Sim", value: "sim", picture: "/assets/images/porta_de_correr_2folhas_persiana_integrada_motorizada.webp" },
+                { label: "Não", value: "nao", picture: "/assets/images/porta_de_correr_2folhas_manual.webp" }
             ]
         };
     }
@@ -100,11 +100,11 @@ export class TriageMachine {
             stateID: "askPortaGiroMaterial",
             question: "Qual o material de preenchimento da porta?",
             options: [
-                { label: "Lambri (Painel Fechado)", value: "lambri", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_giro_1folha_lambris.webp" },
-                { label: "Veneziana (Ventilada)", value: "veneziana", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_giro_1folha_veneziana.webp" },
-                { label: "Vidro", value: "vidro", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_giro_1folha_vidro.webp" },
-                { label: "Metade Vidro, Metade Lambri", value: "vidro + lambri", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_giro_1folha_metade_lambris.webp" },
-                { label: "Metade Vidro, Metade Veneziana", value: "vidro + veneziana", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_giro_1folha_metade_veneziana.webp" }
+                { label: "Lambri (Painel Fechado)", value: "lambri", picture: "/assets/images/porta_de_giro_1folha_lambris.webp" },
+                { label: "Veneziana (Ventilada)", value: "veneziana", picture: "/assets/images/porta_de_giro_1folha_veneziana.webp" },
+                { label: "Vidro", value: "vidro", picture: "/assets/images/porta_de_giro_1folha_vidro.webp" },
+                { label: "Metade Vidro, Metade Lambri", value: "vidro + lambri", picture: "/assets/images/porta_de_giro_1folha_metade_lambris.webp" },
+                { label: "Metade Vidro, Metade Veneziana", value: "vidro + veneziana", picture: "/assets/images/porta_de_giro_1folha_metade_veneziana.webp" }
             ]
         };
     }
@@ -114,8 +114,8 @@ export class TriageMachine {
             stateID: "askJanelaCorrerPersianaTipo",
             question: "A persiana deve ser motorizada ou manual?",
             options: [
-                { label: "Motorizada", value: "motorizada", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/janela_de_correr_2folhas_persiana-integrada_motorizada.webp", sku: "J-COR-VIDRO-PERS-MOT-001", url: "/product/J-COR-VIDRO-PERS-MOT-001" },
-                { label: "Manual", value: "manual", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/janela_de_correr_2folhas_persiana_manual.webp", sku: "J-COR-VIDRO-PERS-MAN-002", url: "/product/J-COR-VIDRO-PERS-MAN-002" }
+                { label: "Motorizada", value: "motorizada", picture: "/assets/images/janela_de_correr_2folhas_persiana-integrada_motorizada.webp", sku: "J-COR-VIDRO-PERS-MOT-001", url: "/product/J-COR-VIDRO-PERS-MOT-001" },
+                { label: "Manual", value: "manual", picture: "/assets/images/janela_de_correr_2folhas_persiana_manual.webp", sku: "J-COR-VIDRO-PERS-MAN-002", url: "/product/J-COR-VIDRO-PERS-MAN-002" }
             ]
         };
     }
@@ -125,8 +125,8 @@ export class TriageMachine {
             stateID: "askJanelaCorrerSemPersianaMaterial",
             question: "Qual o material de preenchimento?",
             options: [
-                { label: "Apenas Vidro", value: "vidro", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/janela_de_correr_2folhas_manual.webp" },
-                { label: "Vidro + Veneziana", value: "vidro + veneziana", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/janela_de_correr_2folhas_veneziana.webp" }
+                { label: "Apenas Vidro", value: "vidro", picture: "/assets/images/janela_de_correr_2folhas_manual.webp" },
+                { label: "Vidro + Veneziana", value: "vidro + veneziana", picture: "/assets/images/janela_de_correr_2folhas_veneziana.webp" }
             ]
         };
     }
@@ -136,8 +136,8 @@ export class TriageMachine {
             stateID: "askPortaCorrerPersianaTipo",
             question: "A persiana deve ser motorizada ou manual?",
             options: [
-                { label: "Motorizada", value: "motorizada", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_correr_2folhas_persiana_integrada_motorizada.webp", sku: "P-COR-VIDRO-PERS-MOT-011", url: "/product/P-COR-VIDRO-PERS-MOT-011" },
-                { label: "Manual", value: "manual", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_correr_2folhas_persiana_integrada_manual.webp", sku: "P-COR-VIDRO-PERS-MAN-012", url: "/product/P-COR-VIDRO-PERS-MAN-012" }
+                { label: "Motorizada", value: "motorizada", picture: "/assets/images/porta_de_correr_2folhas_persiana_integrada_motorizada.webp", sku: "P-COR-VIDRO-PERS-MOT-011", url: "/product/P-COR-VIDRO-PERS-MOT-011" },
+                { label: "Manual", value: "manual", picture: "/assets/images/porta_de_correr_2folhas_persiana_integrada_manual.webp", sku: "P-COR-VIDRO-PERS-MAN-012", url: "/product/P-COR-VIDRO-PERS-MAN-012" }
             ]
         };
     }
@@ -147,8 +147,8 @@ export class TriageMachine {
             stateID: "askPortaCorrerSemPersianaMaterial",
             question: "Qual o material de preenchimento?",
             options: [
-                { label: "Apenas Vidro", value: "vidro", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_correr_2folhas_manual.webp" },
-                { label: "Vidro + Veneziana", value: "vidro + veneziana", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_correr_2folhas_veneziana.webp" }
+                { label: "Apenas Vidro", value: "vidro", picture: "/assets/images/porta_de_correr_2folhas_manual.webp" },
+                { label: "Vidro + Veneziana", value: "vidro + veneziana", picture: "/assets/images/porta_de_correr_2folhas_veneziana.webp" }
             ]
         };
     }
@@ -156,24 +156,24 @@ export class TriageMachine {
     private askPortaGiroFolhas(materialValue: string, stateID: string): QuestionState {
         const optionsMap: { [key: string]: Option[] } = {
             "lambri": [
-                { label: "1 Folha", value: "1", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_giro_1folha_lambris.webp", sku: "P-GIR-LAM-018", url: "/product/P-GIR-LAM-018" },
-                { label: "2 Folhas", value: "2", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_giro_2folhas_lambris.webp", sku: "P-GIR-LAM-019", url: "/product/P-GIR-LAM-019" }
+                { label: "1 Folha", value: "1", picture: "/assets/images/porta_de_giro_1folha_lambris.webp", sku: "P-GIR-LAM-018", url: "/product/P-GIR-LAM-018" },
+                { label: "2 Folhas", value: "2", picture: "/assets/images/porta_de_giro_2folhas_lambris.webp", sku: "P-GIR-LAM-019", url: "/product/P-GIR-LAM-019" }
             ],
             "veneziana": [
-                { label: "1 Folha", value: "1", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_giro_1folha_veneziana.webp", sku: "P-GIR-VEN-020", url: "/product/P-GIR-VEN-020" },
-                { label: "2 Folhas", value: "2", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_giro_2folhas_veneziana.webp", sku: "P-GIR-VEN-021", url: "/product/P-GIR-VEN-021" }
+                { label: "1 Folha", value: "1", picture: "/assets/images/porta_de_giro_1folha_veneziana.webp", sku: "P-GIR-VEN-020", url: "/product/P-GIR-VEN-020" },
+                { label: "2 Folhas", value: "2", picture: "/assets/images/porta_de_giro_2folhas_veneziana.webp", sku: "P-GIR-VEN-021", url: "/product/P-GIR-VEN-021" }
             ],
             "vidro": [
-                { label: "1 Folha", value: "1", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_giro_1folha_vidro.webp", sku: "P-GIR-VIDRO-022", url: "/product/P-GIR-VIDRO-022" },
-                { label: "2 Folhas", value: "2", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_giro_2folhas_vidro.webp", sku: "P-GIR-VIDRO-023", url: "/product/P-GIR-VIDRO-023" }
+                { label: "1 Folha", value: "1", picture: "/assets/images/porta_de_giro_1folha_vidro.webp", sku: "P-GIR-VIDRO-022", url: "/product/P-GIR-VIDRO-022" },
+                { label: "2 Folhas", value: "2", picture: "/assets/images/porta_de_giro_2folhas_vidro.webp", sku: "P-GIR-VIDRO-023", url: "/product/P-GIR-VIDRO-023" }
             ],
             "vidro + lambri": [
-                { label: "1 Folha", value: "1", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_giro_1folha_metade_lambris.webp", sku: "P-GIR-MVL-024", url: "/product/P-GIR-MVL-024" },
-                { label: "2 Folhas", value: "2", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_giro_2folhas_metade_lambris.webp", sku: "P-GIR-MVL-025", url: "/product/P-GIR-MVL-025" }
+                { label: "1 Folha", value: "1", picture: "/assets/images/porta_de_giro_1folha_metade_lambris.webp", sku: "P-GIR-MVL-024", url: "/product/P-GIR-MVL-024" },
+                { label: "2 Folhas", value: "2", picture: "/assets/images/porta_de_giro_2folhas_metade_lambris.webp", sku: "P-GIR-MVL-025", url: "/product/P-GIR-MVL-025" }
             ],
             "vidro + veneziana": [
-                { label: "1 Folha", value: "1", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_giro_1folha_metade_veneziana.webp", sku: "P-GIR-MVV-026", url: "/product/P-GIR-MVV-026" },
-                { label: "2 Folhas", value: "2", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_giro_2folhas_metade_veneziana.webp", sku: "P-GIR-MVV-027", url: "/product/P-GIR-MVV-027" }
+                { label: "1 Folha", value: "1", picture: "/assets/images/porta_de_giro_1folha_metade_veneziana.webp", sku: "P-GIR-MVV-026", url: "/product/P-GIR-MVV-026" },
+                { label: "2 Folhas", value: "2", picture: "/assets/images/porta_de_giro_2folhas_metade_veneziana.webp", sku: "P-GIR-MVV-027", url: "/product/P-GIR-MVV-027" }
             ]
         };
         return {
@@ -188,9 +188,9 @@ export class TriageMachine {
             stateID: "askJanelaCorrerVidroFolhas",
             question: "Com quantas folhas (partes)?",
             options: [
-                { label: "2 Folhas", value: "2", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/janela_de_correr_2folhas_manual.webp", sku: "J-COR-VIDRO-003", url: "/product/J-COR-VIDRO-003" },
-                { label: "3 Folhas", value: "3", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/janela_de_correr_3folhas_manual.webp", sku: "J-COR-VIDRO-004", url: "/product/J-COR-VIDRO-004" },
-                { label: "4 Folhas", value: "4", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/janela_de_correr_4folhas_manual.webp", sku: "J-COR-VIDRO-005", url: "/product/J-COR-VIDRO-005" }
+                { label: "2 Folhas", value: "2", picture: "/assets/images/janela_de_correr_2folhas_manual.webp", sku: "J-COR-VIDRO-003", url: "/product/J-COR-VIDRO-003" },
+                { label: "3 Folhas", value: "3", picture: "/assets/images/janela_de_correr_3folhas_manual.webp", sku: "J-COR-VIDRO-004", url: "/product/J-COR-VIDRO-004" },
+                { label: "4 Folhas", value: "4", picture: "/assets/images/janela_de_correr_4folhas_manual.webp", sku: "J-COR-VIDRO-005", url: "/product/J-COR-VIDRO-005" }
             ]
         };
     }
@@ -200,8 +200,8 @@ export class TriageMachine {
             stateID: "askJanelaCorrerVeneFolhas",
             question: "Com quantas folhas (partes)?",
             options: [
-                { label: "3 Folhas", value: "3", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/janela_de_correr_2folhas_veneziana.webp", sku: "J-COR-VIDRO-VEN-006", url: "/product/J-COR-VIDRO-VEN-006" },
-                { label: "6 Folhas", value: "6", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/janela_de_correr_6folhas_veneziana.webp", sku: "J-COR-VIDRO-VEN-007", url: "/product/J-COR-VIDRO-VEN-007" }
+                { label: "3 Folhas", value: "3", picture: "/assets/images/janela_de_correr_2folhas_veneziana.webp", sku: "J-COR-VIDRO-VEN-006", url: "/product/J-COR-VIDRO-VEN-006" },
+                { label: "6 Folhas", value: "6", picture: "/assets/images/janela_de_correr_6folhas_veneziana.webp", sku: "J-COR-VIDRO-VEN-007", url: "/product/J-COR-VIDRO-VEN-007" }
             ]
         };
     }
@@ -211,9 +211,9 @@ export class TriageMachine {
             stateID: "askPortaCorrerVidroFolhas",
             question: "Com quantas folhas (partes)?",
             options: [
-                { label: "2 Folhas", value: "2", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_correr_2folhas_manual.webp", sku: "P-COR-VIDRO-013", url: "/product/P-COR-VIDRO-013" },
-                { label: "3 Folhas", value: "3", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_correr_3folhas_manual.webp", sku: "P-COR-VIDRO-014", url: "/product/P-COR-VIDRO-014" },
-                { label: "4 Folhas", value: "4", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_correr_4folhas_manual.webp", sku: "P-COR-VIDRO-015", url: "/product/P-COR-VIDRO-015" }
+                { label: "2 Folhas", value: "2", picture: "/assets/images/porta_de_correr_2folhas_manual.webp", sku: "P-COR-VIDRO-013", url: "/product/P-COR-VIDRO-013" },
+                { label: "3 Folhas", value: "3", picture: "/assets/images/porta_de_correr_3folhas_manual.webp", sku: "P-COR-VIDRO-014", url: "/product/P-COR-VIDRO-014" },
+                { label: "4 Folhas", value: "4", picture: "/assets/images/porta_de_correr_4folhas_manual.webp", sku: "P-COR-VIDRO-015", url: "/product/P-COR-VIDRO-015" }
             ]
         };
     }
@@ -223,8 +223,8 @@ export class TriageMachine {
             stateID: "askPortaCorrerVeneFolhas",
             question: "Com quantas folhas (partes)?",
             options: [
-                { label: "3 Folhas", value: "3", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_correr_2folhas_veneziana.webp", sku: "P-COR-VIDRO-VEN-016", url: "/product/P-COR-VIDRO-VEN-016" },
-                { label: "6 Folhas", value: "6", picture: "https://storage.googleapis.com/ai-studio-bucket-632357271427-us-west1/assets/images/porta_de_correr_6folhas_veneziana.webp", sku: "P-COR-VIDRO-VEN-017", url: "/product/P-COR-VIDRO-VEN-017" }
+                { label: "3 Folhas", value: "3", picture: "/assets/images/porta_de_correr_2folhas_veneziana.webp", sku: "P-COR-VIDRO-VEN-016", url: "/product/P-COR-VIDRO-VEN-016" },
+                { label: "6 Folhas", value: "6", picture: "/assets/images/porta_de_correr_6folhas_veneziana.webp", sku: "P-COR-VIDRO-VEN-017", url: "/product/P-COR-VIDRO-VEN-017" }
             ]
         };
     }
