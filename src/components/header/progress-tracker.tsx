@@ -1,6 +1,5 @@
 import { Button } from "../global/button";
 import { RefreshCw, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 type ProgressTrackerProps = {
   history: string[];
@@ -10,10 +9,7 @@ type ProgressTrackerProps = {
 export function ProgressTracker({ history, onReset }: ProgressTrackerProps) {
   return (
     <div
-      className={cn(
-        "flex items-center justify-between mb-6 p-3 bg-card rounded-lg shadow-sm flex-wrap gap-2 md:gap-4 transition-opacity duration-500",
-        "mb-6"
-      )}
+      className="flex items-center justify-between flex-wrap gap-2 md:gap-4"
     >
       <Button variant="outline" size="sm" onClick={onReset} className="text-xs sm:text-sm">
         <RefreshCw className="w-3 h-3 mr-1.5" />

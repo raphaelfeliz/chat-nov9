@@ -3,8 +3,8 @@
   packages = [ pkgs.nodejs_20 ];
   idx = {
     extensions = [
-      "dbaeumer.vscode-eslint",
-      "bradlc.vscode-tailwindcss",
+      "dbaeumer.vscode-eslint"
+      "bradlc.vscode-tailwindcss"
       "esbenp.prettier-vscode"
     ];
     workspace = {
