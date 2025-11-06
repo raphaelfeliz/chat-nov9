@@ -24,10 +24,8 @@ export function ResultProductCard({ product }: ResultProductCardProps) {
 
   return (
     <div className="flex flex-col items-center justify-center">
-      <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4 text-center">
-        Produto encontrado
-      </h2>
-      <Card className="w-full max-w-sm md:max-w-2xl overflow-hidden shadow-xl bg-card border-border md:grid md:grid-cols-2">
+     
+      <Card className="w-2/3 overflow-hidden shadow-xl bg-card border-border md:grid md:grid-cols-2">
         {/* --- IMAGE --- */}
         <CardContent className="p-0">
           <div className="relative aspect-square w-full bg-white">

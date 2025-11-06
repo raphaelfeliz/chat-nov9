@@ -21,7 +21,7 @@ export default function Home() {
                 : 'text-muted-foreground'
             }`}
           >
-            Configurador
+            Monte Agora
           </button>
           <button
             onClick={() => setActiveTab('chat')}
@@ -31,7 +31,7 @@ export default function Home() {
                 : 'text-muted-foreground'
             }`}
           >
-            Chat
+            Chat Online
           </button>
         </nav>
       </div>
