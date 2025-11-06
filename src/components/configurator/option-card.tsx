@@ -1,3 +1,4 @@
+'use client';
 import type { Option } from "@/lib/triage";
 import Image from "next/image";
 import { Card, CardContent, CardFooter } from "@/components/chat/card";
@@ -13,7 +14,7 @@ export function OptionCard({ option, onClick }: OptionCardProps) {
     <button
       onClick={onClick}
       className={cn(
-        "group text-left rounded-lg overflow-hidden w-[350px] focus:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-opacity-75"
+        "group text-left rounded-lg overflow-hidden focus:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-opacity-75"
       )}
     >
       <Card className="h-full transition-all duration-200 ease-in-out bg-card border-border group-hover:bg-primary/20 group-hover:border-primary focus:bg-primary/20 focus:border-primary">
@@ -29,7 +30,7 @@ export function OptionCard({ option, onClick }: OptionCardProps) {
           </div>
         </CardContent>
         <CardFooter className="p-3 md:p-4">
-          <h3 className="text-base md:text-lg font-semibold text-card-foreground">
+          <h3 className="text-sm md:text-base font-semibold text-card-foreground">
             {option.label}
           </h3>
         </CardFooter>
