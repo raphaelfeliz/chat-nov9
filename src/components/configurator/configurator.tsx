@@ -2,7 +2,7 @@
 
 import { useConfiguratorContext } from '@/context/ConfiguratorContext';
 import { OptionCard } from './option-card';
-import { SkuDisplay } from './sku-display';
+import { ResultProductCard } from './result-product-card';
 
 export function Configurator() {
   const { currentState, sku, selectOption, finalProduct, fullProductName } =
@@ -12,7 +12,7 @@ export function Configurator() {
     <div className="container mx-auto px-4 py-8 md:py-12">
       {sku && finalProduct ? (
         <>
-          <SkuDisplay product={{...finalProduct, label: fullProductName}} />
+          <ResultProductCard product={{...finalProduct, label: fullProductName}} />
         </>
       ) : currentState ? (
         <>

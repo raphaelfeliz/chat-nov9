@@ -8,18 +8,23 @@
       "components": [
         {
           "name": "app-header.tsx",
-          "path": "/src/components/app-header.tsx",
+          "path": "/src/components/header/app-header.tsx",
           "description": "The main header for the application. Contains navigation links and the application logo."
         },
         {
           "name": "desktop-main-view.tsx",
-          "path": "/src/components/desktop-main-view.tsx",
+          "path": "/src/components/app-view/desktop-main-view.tsx",
           "description": "The main view for the desktop version of the application. It contains the main content area and the chat panel."
         },
         {
           "name": "nav-link.tsx",
-          "path": "/src/components/nav-link.tsx",
+          "path": "/src/components/header/nav-link.tsx",
           "description": "A component for creating navigation links in the application header."
+        },
+        {
+          "name": "progress-tracker.tsx",
+          "path": "/src/components/header/progress-tracker.tsx",
+          "description": "A component for displaying the progress of the configurator."
         }
       ]
     },
@@ -28,13 +33,18 @@
       "components": [
         {
           "name": "chat-panel.tsx",
-          "path": "/src/components/chat-panel.tsx",
+          "path": "/src/components/chat/chat-panel.tsx",
           "description": "The main component for the chat interface. It manages the chat state and renders the message list and input."
         },
         {
           "name": "chat-tab.tsx",
-          "path": "/src/components/chat-tab.tsx",
+          "path": "/src/components/chat/chat-tab.tsx",
           "description": "A component for the chat tab in the main view."
+        },
+        {
+          "name": "card.tsx",
+          "path": "/src/components/chat/card.tsx",
+          "description": "A card component for displaying content in a structured way."
         }
       ]
     },
@@ -43,27 +53,22 @@
       "components": [
         {
           "name": "configurator-tab.tsx",
-          "path": "/src/components/configurator-tab.tsx",
+          "path": "/src/components/configurator/configurator-tab.tsx",
           "description": "The main tab for the product configurator."
         },
         {
           "name": "configurator.tsx",
-          "path": "/src/components/configurator.tsx",
+          "path": "/src/components/configurator/configurator.tsx",
           "description": "The main component for the product configurator feature."
         },
         {
           "name": "option-card.tsx",
-          "path": "/src/components/option-card.tsx",
+          "path": "/src/components/configurator/option-card.tsx",
           "description": "A card for displaying a single option in the configurator."
         },
         {
-          "name": "progress-tracker.tsx",
-          "path": "/src/components/progress-tracker.tsx",
-          "description": "A component for displaying the progress of the configurator."
-        },
-        {
-          "name": "sku-display.tsx",
-          "path": "/src/components/sku-display.tsx",
+          "name": "result-card.tsx",
+          "path": "/src/components/configurator/result-card.tsx",
           "description": "A component for displaying the SKU of the configured product."
         }
       ]
@@ -73,22 +78,17 @@
       "components": [
         {
           "name": "button.tsx",
-          "path": "/src/components/ui/button.tsx",
+          "path": "/src/components/global/button.tsx",
           "description": "A general-purpose button component."
         },
         {
-          "name": "card.tsx",
-          "path": "/src/components/ui/card.tsx",
-          "description": "A card component for displaying content in a structured way."
-        },
-        {
           "name": "toast.tsx",
-          "path": "/src/components/ui/toast.tsx",
+          "path": "/src/components/global/toast.tsx",
           "description": "A component for displaying toast notifications."
         },
         {
           "name": "toaster.tsx",
-          "path": "/src/components/ui/toaster.tsx",
+          "path": "/src/components/global/toaster.tsx",
           "description": "A component for managing and displaying toasts."
         }
       ]

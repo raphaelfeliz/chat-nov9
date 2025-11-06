@@ -1,22 +1,22 @@
-"use client";
+'use client';
 
-import Image from "next/image";
-import Link from "next/link";
+import Image from 'next/image';
+import Link from 'next/link';
 import {
   Card,
   CardContent,
   CardFooter,
-} from "@/components/chat/card";
-import { Button } from "@/components/global/button";
-import { MessageSquare } from "lucide-react";
-import type { Option } from "@/lib/triage";
-import { generateWhatsAppLink } from "@/lib/whatsapp";
+} from '@/components/chat/card';
+import { Button } from '@/components/global/button';
+import { MessageSquare } from 'lucide-react';
+import type { Option } from '@/lib/triage';
+import { generateWhatsAppLink } from '@/lib/whatsapp';
 
-type SkuDisplayProps = {
+type ResultProductCardProps = {
   product: Option;
 };
 
-export function SkuDisplay({ product }: SkuDisplayProps) {
+export function ResultProductCard({ product }: ResultProductCardProps) {
   const handleWhatsAppClick = () => {
     const link = generateWhatsAppLink(product.label);
     window.open(link, '_blank');
