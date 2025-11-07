@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // TEMPORARY: open access during connectivity/dev phase.
+    // We'll replace this in Step 8 with App Check + schema validation rules.
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
