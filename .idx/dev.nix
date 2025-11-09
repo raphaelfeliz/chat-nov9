@@ -14,7 +14,7 @@
   env = {
     # 1. For Genkit AI (Server-side)
     #    (This was already in your v2 nix file)
-    GOOGLE_GENAI_API_KEY = "AIzaSyDN1AXPjWaBVVHPSv0ZpujSGHrQ_1DJ6-U";
+    GOOGLE_GENAI_API_KEY = "AIzaSyB3_9EL3jQLDU2Y25qQ7I5q796V-v0hqHU";
 
     # 2. For Firebase Client SDK (Client-side)
     #    (These are the keys you just provided)
@@ -43,6 +43,9 @@
         npm-install = "npm install";
       };
       onStart = {
+        # --- UPDATE: Added this line ---
+        update-map = "npm run update-filemap";
+        # -----------------------------
         dev-server = "npm run dev";
       };
     };
