@@ -3,13 +3,11 @@
 PATH: src/components/chat/chat-tab.tsx
 PURPOSE: Manages the chat UI, message history, and acts as the "glue"
          between user text input and the ConfiguratorContext.
-SUMMARY: This component is now fully integrated with the ConfiguratorContext.
-         It sends user input to the AI, receives a JSON "form" (ExtractedFacets),
-         and passes that form to the context's `applyExtractedFacets` function.
-         **NEW**: It now also reads the 'knowledgeBaseAnswer' from the JSON
-         and posts the answer as a chat bubble before processing the facets.
-         It also *listens* to the context's `currentQuestion` to post app-generated
-         question bubbles.
+SUMMARY: This component now manages the "AI is thinking" loading bubble.
+         When a user sends a message, it atomically adds both the user's
+         message and a 'loading' bubble to the state.
+         When the AI responds, it atomically removes the 'loading' bubble
+         and replaces it with the AI's answer and/or the next question.
 IMPORTS:
  - React: useState, useEffect, useRef
  - Context: useConfiguratorContext
@@ -25,7 +23,6 @@ EXPORTS:
 import React, { useEffect, useState, useRef } from 'react';
 import ChatBubbleArea from '@/components/chat/bubble-area/chat-bubble-area';
 import FooterArea from '@/components/chat/footer-area/footer-area';
-// --- FIX: Removed ResultProductCard as it's no longer rendered here ---
 import {
   createSession,
   saveSession,
@@ -36,7 +33,6 @@ import {
 import { saveMessage as saveMessageToFirestore } from '@/lib/firestore';
 import { useConfiguratorContext } from '@/context/ConfiguratorContext';
 import { type ExtractedFacets } from '@/ai/genkit';
-// --- FIX: Removed Product import as it's no longer needed ---
 
 /* --sectionComment
 SECTION: COMPONENT (ChatTab)
@@ -118,7 +114,7 @@ export function ChatTab() {
   }, [messages, session]);
 
   /* --sectionComment
-  SECTION: NEW: Listen to ConfiguratorContext
+  SECTION: Listen to ConfiguratorContext
   */
   useEffect(() => {
     // Do not post any new questions if the flow is finished
@@ -129,10 +125,13 @@ export function ChatTab() {
     const newQuestionText = currentQuestion.question;
     const lastMessage = messages[messages.length - 1];
 
+    // Prevent posting if the last message is already the question
+    // or if the last message is a loading bubble (wait for it to resolve)
     if (
       newQuestionText &&
       newQuestionText !== lastPostedQuestionRef.current &&
-      newQuestionText !== lastMessage?.text
+      newQuestionText !== lastMessage?.text &&
+      lastMessage?.variant !== 'loading' // <-- Don't post while loading
     ) {
       console.log(
         `[ChatTab] Context changed. Posting new question: ${newQuestionText}`
@@ -145,7 +144,14 @@ export function ChatTab() {
         timestamp: ts,
         variant: 'incoming',
       };
-      setMessages((prev) => [...prev, appBubble]);
+
+      // --- MODIFICATION ---
+      // When posting the app's next question, we also clean up
+      // any 'loading' bubble that might still be around (e.g., if no KB answer was given).
+      setMessages((prev) => [
+        ...prev.filter((m) => m.variant !== 'loading'),
+        appBubble,
+      ]);
       lastPostedQuestionRef.current = newQuestionText; // Mark as posted
 
       // Save the app's question to Firestore
@@ -157,46 +163,54 @@ export function ChatTab() {
   }, [currentQuestion, finalProducts, messages, bootReady, sessionId]);
 
   /* --sectionComment
-  SECTION: SEND HANDLER (Refactored for "Form-Filling" AI)
+  SECTION: SEND HANDLER (Refactored for "Loading Bubble")
   */
   const handleSendMessage = async (text: string) => {
     console.group('[ChatTab] handleSendMessage');
     console.time(`${LOG_SCOPE} total`);
     setIsLoading(true);
+
+    const trimmed = text?.trim();
+    if (!trimmed) {
+      console.warn(`${LOG_SCOPE} ignored empty message`);
+      setIsLoading(false); // <-- Reset loading state
+      return;
+    }
+    if (!bootReady) {
+      console.warn(`${LOG_SCOPE} send attempted before bootstrap complete`);
+      setIsLoading(false); // <-- Reset loading state
+      return;
+    }
+
+    const userTs = Date.now();
+    const optimistic: ChatMessage = {
+      id: String(userTs),
+      sender: 'user',
+      text: trimmed,
+      timestamp: userTs,
+      variant: 'outgoing',
+    };
+
+    // --- MODIFICATION ---
+    // Create the loading bubble that will be added immediately
+    const loadingTs = userTs + 1; // Ensure unique ID
+    const loadingBubble: ChatMessage = {
+      id: String(loadingTs),
+      sender: 'assistant',
+      text: '...', // Placeholder text, will be replaced by animation
+      timestamp: loadingTs,
+      variant: 'loading',
+    };
+
+    // --- MODIFICATION ---
+    // 1) Optimistic UI append (Add user bubble + loading bubble at once)
+    setMessages((prev) => [...prev, optimistic, loadingBubble]);
+
+    // --- MODIFICATION ---
+    // 2) Firestore mirror (Run in background, DO NOT await)
+    saveMessageToFirestore(sessionId, 'user', trimmed, { timestamp: userTs });
+
     try {
-      const trimmed = text?.trim();
-      if (!trimmed) {
-        console.warn(`${LOG_SCOPE} ignored empty message`);
-        return;
-      }
-      if (!bootReady)
-        console.warn(`${LOG_SCOPE} send attempted before bootstrap complete`);
-
-      const ts = Date.now();
-      const optimistic: ChatMessage = {
-        id: String(ts),
-        sender: 'user',
-        text: trimmed,
-        timestamp: ts,
-        variant: 'outgoing',
-      };
-
-      // 1) Optimistic UI append
-      setMessages((prev) => {
-        const next = [...prev, optimistic];
-        console.log(
-          `${LOG_SCOPE} optimistic append → next.length =`,
-          next.length
-        );
-        return next;
-      });
-
-      // 2) Firestore mirror
-      console.time(`${LOG_SCOPE} Firestore write`);
-      await saveMessageToFirestore(sessionId, 'user', trimmed, { timestamp: ts });
-      console.timeEnd(`${LOG_SCOPE} Firestore write`);
-      console.log(`${LOG_SCOPE} Firestore write completed`);
-
       // 3) AI Request
       console.group(`${LOG_SCOPE} send to /api/chat`);
       console.time(`${LOG_SCOPE} fetch latency`);
@@ -215,7 +229,6 @@ export function ChatTab() {
       console.timeEnd(`${LOG_SCOPE} fetch latency`);
       console.log(`${LOG_SCOPE} ← AI response (JSON Form):`, aiJson);
 
-      // --- MODIFICATION START (Checkpoint 2) ---
       // 5) Post the KB Answer (if one exists)
       const kbAnswer = aiJson.knowledgeBaseAnswer;
       if (kbAnswer && kbAnswer.trim() !== '' && kbAnswer.trim() !== 'null') {
@@ -229,20 +242,20 @@ export function ChatTab() {
           variant: 'incoming',
         };
 
-        // Post the answer bubble to the UI
-        setMessages((prev) => [...prev, answerBubble]);
+        // --- MODIFICATION ---
+        // Atomically remove the loading bubble and add the answer bubble
+        setMessages((prev) => [
+          ...prev.filter((m) => m.variant !== 'loading'),
+          answerBubble,
+        ]);
 
-        // Save the answer bubble to Firestore
-        try {
-          await saveMessageToFirestore(sessionId, 'bot', kbAnswer, {
-            timestamp: answerTs,
-          });
-          console.log(`${LOG_SCOPE} Saved KB answer to Firestore.`);
-        } catch (fireErr) {
-          console.warn(`${LOG_SCOPE} KB answer save skipped:`, fireErr);
-        }
+        // Save the answer bubble to Firestore (run in background)
+        saveMessageToFirestore(sessionId, 'bot', kbAnswer, {
+          timestamp: answerTs,
+        });
       }
-      // --- MODIFICATION END ---
+      // If no KB answer, the loading bubble will be removed
+      // by the useEffect hook when it posts the next question.
 
       // 6) Apply AI Form to Context (This triggers the configurator logic)
       applyExtractedFacets(aiJson);
@@ -257,7 +270,13 @@ export function ChatTab() {
         timestamp: Date.now(),
         variant: 'incoming',
       };
-      setMessages((prev) => [...prev, fallback]);
+
+      // --- MODIFICATION ---
+      // Atomically remove the loading bubble and add the error bubble
+      setMessages((prev) => [
+        ...prev.filter((m) => m.variant !== 'loading'),
+        fallback,
+      ]);
     } finally {
       setIsLoading(false);
       console.timeEnd(`${LOG_SCOPE} total`);
@@ -271,8 +290,8 @@ export function ChatTab() {
   */
   return (
     <div className="bg-[#0d1a26] flex flex-col h-[80vh] text-white">
+      {/* Pass messages state to the bubble area */}
       <ChatBubbleArea messages={messages ?? []} />
-      {/* --- FIX: Removed the ResultProductCard section as requested --- */}
       <FooterArea onSendMessage={handleSendMessage} isLoading={isLoading} />
     </div>
   );
