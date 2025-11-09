@@ -1,0 +1,941 @@
+/*--- File: src/app/api/chat/route.ts ---*/
+PATH: src/app/api/chat/route.ts
+
+PURPOSE: The server-side API endpoint for the chat feature.
+
+SUMMARY: This file defines the POST request handler for `/api/chat`.
+         It receives the `userInput` from the client (`ChatCoPilot.tsx`),
+         calls the `extractAttributesFromText` function from the Genkit
+         engine, and returns the resulting JSON "form" to the client.
+
+RELATES TO OTHER FILES:
+- This is the "API mailman."
+- It imports and calls the `extractAttributesFromText` function
+  from `src/core/ai/genkit.ts`.
+- It is called via `fetch` by `src/features/chat/ChatCoPilot.tsx`.
+
+IMPORTS:
+- NextResponse from 'next/server'
+- extractAttributesFromText from '@/core/ai/genkit'
+
+/*--- File: src/app/layout.tsx ---*/
+PATH: src/app/layout.tsx
+
+PURPOSE: Defines the global HTML shell for the entire Next.js application.
+
+SUMMARY: This component wraps all pages with shared UI and context providers.
+         It renders the <ConfiguratorProvider> (from 'core') to make
+         the global state available everywhere. It also renders the
+         persistent <AppHeader> (from 'features') and the global <Toaster>
+         (from 'components/ui').
+
+RELATES TO OTHER FILES:
+- This is the root of the React component tree.
+- Imports `ConfiguratorProvider` from `src/core/state/ConfiguratorContext.tsx`.
+- Imports `AppHeader` from `src/features/header/AppHeader.tsx`.
+- Imports `Toaster` from `src/components/ui/toaster.tsx`.
+
+IMPORTS:
+- Metadata from 'next'
+- ./globals.css
+- Toaster from '@/components/ui/toaster'
+- AppHeader from '@/features/header/AppHeader'
+- ConfiguratorProvider from '@/core/state/ConfiguratorContext'
+
+/*--- File: src/app/page.tsx ---*/
+PATH: src/app/page.tsx
+
+PURPOSE: Defines the main page layout, handling the responsive display
+         of the Configurator and Chat components.
+
+SUMMARY: This component implements the application's primary responsive UI.
+         - On mobile, it uses a state variable ('activeTab') to render
+           tab buttons and toggle between <Configurator /> and <ChatCoPilot />.
+         - On desktop, it switches to a 2-column layout, displaying the
+           main <Configurator /> component and a sticky <ChatCoPilot /> sidebar.
+
+RELATES TO OTHER FILES:
+- This is the main page component rendered inside `src/app/layout.tsx`.
+- It imports and arranges the two core feature pillars:
+  - `Configurator` from `src/features/configurator/Configurator.tsx`.
+  - `ChatCoPilot` from `src/features/chat/ChatCoPilot.tsx`.
+
+IMPORTS:
+- useState from 'react'
+- ChatCoPilot from '@/features/chat/ChatCoPilot'
+- Configurator from '@/features/configurator/Configurator'
+
+/*--- File: src/components/ui/button.tsx ---*/
+PATH: src/components/ui/button.tsx
+
+PURPOSE: Provides a highly customizable and reusable Button component
+         for the application's design system, using CVA.
+
+SUMMARY: This file defines the core `Button` component, which is a
+         foundational UI primitive. Styling is managed using CVA
+         to allow for different `variant` and `size` options.
+
+RELATES TO OTHER FILES:
+- This is a foundational UI primitive.
+- It is imported by components like `src/features/header/ui/ResetButton.tsx`.
+- It relies on the class utility function imported from `src/lib/utils.ts`.
+
+IMPORTS:
+- React
+- Slot from '@radix-ui/react-slot'
+- cva, type VariantProps from 'class-variance-authority'
+- cn from '@/lib/utils'
+
+/*--- File: src/components/ui/card.tsx ---*/
+PATH: src/components/ui/card.tsx
+
+PURPOSE: To provide a flexible, styled, multi-part card component for the application's design system.
+
+SUMMARY: This file defines a set of reusable, composable Card components: `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardContent`, and `CardFooter`. Each component uses `React.forwardRef` and imports the `cn()` utility to merge default Tailwind styles with any custom `className` props.
+
+RELATES TO OTHER FILES:
+- This is a foundational UI primitive.
+- It is imported by components across all features, such as `src/features/configurator/ui/OptionCard.tsx`.
+- It imports the `cn` utility function from `src/lib/utils.ts`.
+
+IMPORTS:
+- React from "react"
+- cn from "@/lib/utils"
+
+EXPORTS:
+- Card (React component)
+- CardHeader (React component)
+- CardFooter (React component)
+- CardTitle (React component)
+- CardDescription (React component)
+- CardContent (React component)
+
+/*--- File: src/components/ui/toast.tsx ---*/
+PATH: src/components/ui/toast.tsx
+
+PURPOSE: Defines all foundational components for displaying temporary,
+         dismissible, global notifications (toasts).
+
+SUMMARY: This file provides the full suite of UI components necessary
+         for toast notifications, based on Radix UI. It includes
+         `ToastProvider`, `ToastViewport`, `Toast` (the container),
+         `ToastTitle`, `ToastDescription`, `ToastAction`, and `ToastClose`.
+
+RELATES TO OTHER FILES:
+- This is a foundational UI primitive.
+- It is imported by `src/components/ui/toaster.tsx` (the renderer)
+  and `src/hooks/use-toast.ts` (for types).
+- It imports the `cn` utility function from `src/lib/utils.ts`.
+
+IMPORTS:
+- React
+- ToastPrimitives from '@radix-ui/react-toast'
+- cva, type VariantProps from 'class-variance-authority'
+- X from 'lucide-react'
+- cn from '@/lib/utils'
+
+/*--- File: src/components/ui/toaster.tsx ---*/
+PATH: src/components/ui/toaster.tsx
+
+PURPOSE: The global container component responsible for rendering
+         and managing all active toast notifications.
+
+SUMMARY: This component is rendered once in the root layout. It imports
+         the `useToast` hook to get the list of active toasts. It
+         then maps over this array and renders each toast using the
+         primitive components (Toast, ToastTitle, etc.).
+
+RELATES TO OTHER FILES:
+- This is the "renderer" for the toast system.
+- It is imported by `src/app/layout.tsx`.
+- It consumes the state from `src/hooks/use-toast.ts`.
+- It imports its building blocks from `src/components/ui/toast.tsx`.
+
+IMPORTS:
+- useToast from '@/hooks/use-toast'
+- { Toast, ToastClose, ... } from '@/components/ui/toast'
+
+/*--- File: src/core/ai/genkit.ts ---*/
+PATH: src/core/ai/genkit.ts
+
+PURPOSE: Configure Genkit/Gemini to act as a structured JSON "form-filler" AND Q&A assistant.
+
+SUMMARY: Initializes Gemini 2.5-flash and defines `extractAttributesFromText`.
+          This flow performs two tasks:
+          1) Facet Extraction: Extracts product attributes into their respective keys.
+          2) Q&A: Answers factual questions using an injected Knowledge Base.
+          It forces Gemini to return all keys (7 total) with extracted values or null.
+
+RELATES TO OTHER FILES:
+- This is the "Dual-Task AI" logic.
+- It reads its Q&A data from `./aiKnowledgeBase.yaml` (co-located).
+- It is imported and called by the API route at `src/app/api/chat/route.ts`.
+- It provides the `ExtractedFacets` type, which is used by `src/core/state/ConfiguratorContext.tsx`.
+
+IMPORTS:
+- genkit (core client)
+- googleAI (Gemini plugin)
+- z (Zod for schema definition)
+- fs, path (Node.js for reading the Knowledge Base)
+
+/*--- File: src/core/engine/configuratorEngine.ts ---*/
+PATH: src/core/engine/configuratorEngine.ts
+
+PURPOSE: The new "Smarter Brain" for the Configurator. Contains all auto-skip
+         and filtering logic.
+
+SUMMARY: Defines the question order/labels and exports the main function,
+         `calculateNextUiState`. This function filters the imported
+         PRODUCT_CATALOG based on user selections and applies the (0, 1, 1) rules.
+
+RELATES TO OTHER FILES:
+- This is the "Smarter Brain" logic.
+- It imports its data from `src/core/engine/productDatabase.ts`.
+- It is imported and used by `src/core/state/ConfiguratorContext.tsx`.
+
+IMPORTS:
+- ProductType, PRODUCT_CATALOG from '@/core/engine/productDatabase'
+
+/*--- File: src/core/engine/productDatabase.ts ---*/
+PATH: src/core/engine/productDatabase.ts
+
+PURPOSE: Defines the Product type and exports the product catalog (our "database").
+
+SUMMARY: Contains the Product data type, the BASE_PRODUCT_URL constant, 
+         and the complete PRODUCT_CATALOG array. This file is the 
+         single source of truth for all product data.
+
+RELATES TO OTHER FILES:
+- This is the "data" layer for the configurator engine.
+- It is imported by `src/core/engine/configuratorEngine.ts`.
+
+EXPORTS:
+- Product (type)
+- BASE_PRODUCT_URL (constant)
+- PRODUCT_CATALOG (constant)
+
+/*--- File: src/core/persistence/chatHistory.ts ---*/
+PATH: src/core/persistence/chatHistory.ts
+
+PURPOSE: To centralize all database read/write interactions for chat history.
+
+SUMMARY: This file abstracts all Firestore logic for the chat feature.
+         It provides a function to load an entire session (read) and
+         a function to save a single message (write). It imports the
+         initialized `db` instance and the shared data types.
+
+RELATES TO OTHER FILES:
+- Imports the `db` instance from `./firebase.ts`.
+- Imports types from `./types.ts`.
+- This file is imported by `src/features/chat/ChatCoPilot.tsx` to
+  load and save its messages.
+
+IMPORTS:
+- db from './firebase'
+- ChatMessage, ChatSession from './types'
+- firebase/firestore functions
+
+/*--- File: src/core/persistence/firebase.ts ---*/
+PATH: src/core/persistence/firebase.ts
+
+PURPOSE: To initialize and configure the connection to the Firebase/Firestore backend.
+
+SUMMARY: This file initializes the Firebase app using environment variables
+         and exports the Firestore database instance (`db`). It critically
+         calls `enableIndexedDbPersistence` to ensure the chat
+         history is cached locally, enabling robust offline-first capabilities.
+
+RELATES TO OTHER FILES:
+- This is the root of the persistence layer.
+- The exported `db` instance is imported by `src/core/persistence/chatHistory.ts`
+  to perform read/write operations.
+
+IMPORTS:
+- initializeApp from 'firebase/app'
+- getFirestore, enableIndexedDbPersistence from 'firebase/firestore'
+
+/*--- File: src/core/state/ConfiguratorContext.tsx ---*/
+PATH: src/core/state/ConfiguratorContext.tsx
+
+PURPOSE: Centralize and expose configurator state using the new Smart Engine.
+
+SUMMARY: Manages the `selectedOptions` Master List (the single source of truth)
+         and calls `calculateNextUiState` whenever selections change. Provides
+         public functions for manual clicks (`setAttribute`) and AI batch updates
+         (`applyExtractedFacets`).
+
+RELATES TO OTHER FILES:
+- This is the "State Manager," the heart of the app's interactivity.
+- It imports its logic from `src/core/engine/configuratorEngine.ts`.
+- It imports the AI's output type from `src/core/ai/genkit.ts`.
+- It is imported by `src/app/layout.tsx` (to wrap the app).
+- Its hook (`useConfiguratorContext`) is consumed by all "smart" features (`Configurator.tsx`, `ChatCoPilot.tsx`, `AppHeader.tsx`).
+
+IMPORTS:
+- React hooks
+- calculateNextUiState, FACET_ORDER, etc. from '@/core/engine/configuratorEngine'
+- ExtractedFacets from '@/core/ai/genkit'
+
+/*--- File: src/features/chat/ui/ChatBubble.tsx ---*/
+PATH: src/features/chat/ui/ChatBubble.tsx
+
+PURPOSE: A "dumb" visual component to render a single chat message bubble.
+
+SUMMARY: This component receives the message text and a `variant`
+         ('incoming', 'outgoing', 'loading'). It applies different styles
+         based on the variant. If the variant is 'loading', it renders
+         the `ChatLoader` component instead of text.
+
+RELATES TO OTHER FILES:
+- This is a "dumb" UI component.
+- It is imported and rendered by `src/features/chat/ui/ChatDisplay.tsx`.
+- It imports its child component, `src/features/chat/ui/ChatLoader.tsx`.
+
+IMPORTS:
+- React
+- ChatLoader from './ChatLoader'
+
+/*--- File: src/features/chat/ui/ChatDisplay.tsx ---*/
+PATH: src/features/chat/ui/ChatDisplay.tsx
+
+PURPOSE: A "dumb" visual component to render the scrollable message display area.
+
+SUMMARY: This component maps over the provided `messages` array and renders each
+         as a `ChatBubble` component. It includes a `useEffect` hook that
+         auto-scrolls the view to the bottom (to the `messagesEndRef`)
+         whenever the 'messages' prop is updated.
+
+RELATES TO OTHER FILES:
+- This is a "dumb" UI component.
+- It is imported and rendered by the "smart" `src/features/chat/ChatCoPilot.tsx`.
+- It imports its child component, `src/features/chat/ui/ChatBubble.tsx`.
+- It uses the `ChatMessage` type from `src/core/persistence/types.ts`.
+
+IMPORTS:
+- React (useRef, useEffect)
+- ChatBubble from './ChatBubble'
+- type ChatMessage from '@/core/persistence/types'
+
+/*--- File: src/features/chat/ui/ChatInput.tsx ---*/
+PATH: src/features/chat/ui/ChatInput.tsx
+
+PURPOSE: A "dumb" visual component for the chat input field and send button.
+
+SUMMARY: This is a controlled component that receives an `onSendMessage`
+         callback and an `isLoading` boolean. The `isLoading` prop
+         disables the input and button while the AI is processing.
+         It manages its own internal text state.
+
+RELATES TO OTHER FILES:
+- This is a "dumb" UI component.
+- It is imported and rendered by the "smart" `src/features/chat/ChatCoPilot.tsx`.
+
+IMPORTS:
+- React (useState)
+- lucide-react (Send icon)
+
+/*--- File: src/features/chat/ui/ChatLoader.tsx ---*/
+PATH: src/features/chat/ui/ChatLoader.tsx
+
+PURPOSE: Renders a "fading blocks" loading animation.
+
+SUMMARY: This is a self-contained "dumb" component with its own <style> tag
+         for the keyframe animations. It is imported by ChatBubble.tsx
+         to be displayed when the AI is thinking.
+
+RELATES TO OTHER FILES:
+- This is a "dumb" UI component.
+- It is imported and rendered by `src/features/chat/ui/ChatBubble.tsx`.
+
+IMPORTS:
+- React
+
+/*--- File: src/features/configurator/Configurator.tsx ---*/
+PATH: src/features/configurator/Configurator.tsx
+
+PURPOSE: The "smart" controller for the Configurator feature (Pillar 1).
+
+SUMMARY: This is the "configurator logic folder." It consumes the
+         ConfiguratorContext to get the current state. It then decides
+         whether to render the final `ResultCard` (if the flow is finished)
+         or the `QuestionDisplay` (if the flow is ongoing).
+
+RELATES TO OTHER FILES:
+- It is the "smart" parent for this feature.
+- It is imported by `src/app/page.tsx`.
+- It consumes state from `src/core/state/ConfiguratorContext.tsx`.
+- It imports its "dumb" children from `./ui/QuestionDisplay.tsx` and `./ui/ResultCard.tsx`.
+- It imports data from `src/core/engine/productDatabase.ts`.
+
+IMPORTS:
+- useConfiguratorContext from '@/core/state/ConfiguratorContext'
+- BASE_PRODUCT_URL from '@/core/engine/productDatabase'
+- QuestionDisplay from './ui/QuestionDisplay'
+- ResultCard from './ui/ResultCard'
+
+/*--- File: src/features/configurator/ui/OptionCard.tsx ---*/
+PATH: src/features/configurator/ui/OptionCard.tsx
+
+PURPOSE: A "dumb" visual component for a single clickable configuration option.
+
+SUMMARY: This component receives an `option` object (with label, value, picture)
+         and an `onClick` function via props. It renders a clickable Card
+         primitive, displaying the option's image and label.
+
+RELATES TO OTHER FILES:
+- This is a "dumb" UI component.
+- It is imported and rendered by `src/features/configurator/ui/QuestionDisplay.tsx`.
+- It imports the `Option` type from `src/core/engine/configuratorEngine.ts`.
+- It imports the `Card` primitive from `src/components/ui/card.tsx`.
+
+IMPORTS:
+- Image from 'next/image'
+- { Card } from '@/components/ui/card'
+- { type Option } from '@/core/engine/configuratorEngine'
+
+/*--- File: src/features/configurator/ui/QuestionDisplay.tsx ---*/
+PATH: src/features/configurator/ui/QuestionDisplay.tsx
+
+PURPOSE: A "dumb" visual component to display the current question and its options.
+
+SUMMARY: This component receives all its data via props. It renders the
+         question title and then maps over the `options` array, rendering
+         an `OptionCard` for each one. It attaches the `onOptionClick`
+         handler to each card.
+
+RELATES TO OTHER FILES:
+- This is a "dumb" UI component.
+- It is imported and rendered by the "smart" `src/features/configurator/Configurator.tsx`.
+- It imports and renders its own child, `src/features/configurator/ui/OptionCard.tsx`.
+- It uses the `Option` type from the core engine.
+
+IMPORTS:
+- OptionCard from './OptionCard'
+- type Option from '@/core/engine/configuratorEngine'
+
+/*--- File: src/features/configurator/ui/ResultCard.tsx ---*/
+PATH: src/features/configurator/ui/ResultCard.tsx
+
+PURPOSE: A "dumb" visual component to display the final selected product.
+
+SUMMARY: This component receives a `product` object via props (containing
+         label, picture, and url). It renders a large card with the
+         product image, its full name, and a "Ver Preço" (See Price)
+         button that links to the final product URL.
+
+RELATES TO OTHER FILES:
+- This is a "dumb" UI component.
+- It is imported and rendered by the "smart" `src/features/configurator/Configurator.tsx`.
+- It imports primitives from `src/components/ui/card.tsx` and `src/components/ui/button.tsx`.
+
+IMPORTS:
+- Image from 'next/image'
+- { Card, CardContent } from '@/components/ui/card'
+- { Button } from '@/components/ui/button'
+
+/*--- File: src/features/header/AppHeader.tsx ---*/
+PATH: src/features/header/AppHeader.tsx
+
+PURPOSE: The "smart" controller for the application's persistent header bar.
+
+SUMMARY: This component consumes the ConfiguratorContext to get the
+         `fullProductName` string (for the breadcrumbs) and the `reset`
+         function (for the reset button). It then passes this data down
+         as props to its "dumb" visual children.
+
+RELATES TO OTHER FILES:
+- This is the "smart" parent for this feature.
+- It is imported by `src/app/layout.tsx`.
+- It consumes state from `src/core/state/ConfiguratorContext.tsx`.
+- It imports its "dumb" children from `./ui/Breadcrumb.tsx` and `./ui/ResetButton.tsx`.
+
+IMPORTS:
+- Image from 'next/image'
+- useConfiguratorContext from '@/core/state/ConfiguratorContext'
+- ResetButton from './ui/ResetButton'
+- Breadcrumb from './ui/Breadcrumb'
+
+/*--- File: src/features/header/ui/Breadcrumb.tsx ---*/
+PATH: src/features/header/ui/Breadcrumb.tsx
+
+PURPOSE: A "dumb" visual component that renders a breadcrumb trail.
+
+SUMMARY: This component receives a `history` array of strings via props.
+         It maps over the array, separating items with a ChevronRight
+         icon and highlighting the last item as the current step.
+
+RELATES TO OTHER FILES:
+- This is a "dumb" UI component.
+- It is imported and rendered by the "smart" `src/features/header/AppHeader.tsx`.
+
+IMPORTS:
+- lucide-react (ChevronRight icon)
+
+/*--- File: src/features/header/ui/ResetButton.tsx ---*/
+PATH: src/features/header/ui/ResetButton.tsx
+
+PURPOSE: A "dumb" visual component for the "Reset" button.
+
+SUMMARY: This component receives an `onReset` function via props.
+         It renders the global `Button` primitive with a "ghost"
+         style and an icon. When clicked, it executes the `onReset` prop.
+
+RELATES TO OTHER FILES:
+- This is a "dumb" UI component.
+- It is imported and rendered by the "smart" `src/features/header/AppHeader.tsx`.
+- It imports the `Button` primitive from `src/components/ui/button.tsx`.
+
+IMPORTS:
+- { Button } from '@/components/ui/button'
+- lucide-react (RefreshCw icon)
+
+/*--- File: src/hooks/use-toast.ts ---*/
+PATH: src/hooks/use-toast.ts
+
+PURPOSE: Manages the global state for the toast notification system.
+
+SUMMARY: This file implements the core logic for the toast system.
+         It creates a global state (outside React) to hold the list of
+         toasts and a reducer to manage that state.
+         It exports:
+         1. `toast()`: A function anyone can call to add a new toast.
+         2. `useToast()`: A hook that the <Toaster> component uses
+            to subscribe to the list of toasts and render them.
+
+RELATES TO OTHER FILES:
+- This is the "logic" for the toast system.
+- It is imported by `src/components/ui/toaster.tsx`.
+- It imports types from `src/components/ui/toast.tsx`.
+
+IMPORTS:
+- React
+- { type ToastProps } from '@/components/ui/toast'
+
+/*--- File: src/lib/utils.ts ---*/
+PATH: src/lib/utils.ts
+
+PURPOSE: Provides common, low-level utility functions, primarily for styling.
+
+SUMMARY: This file's main export is the `cn()` function. This helper
+         utility (from `tailwind-merge` and `clsx`) intelligently
+         merges multiple Tailwind CSS class strings, resolving
+         conflicts and making conditional styling much cleaner.
+
+RELATES TO OTHER FILES:
+- This is a foundational utility.
+- It is imported by all UI primitives in `src/components/ui/`
+  (e.g., button.tsx, card.tsx, toast.tsx).
+
+IMPORTS:
+- type ClassValue, clsx from 'clsx'
+- twMerge from 'tailwind-merge'
+
+/*--- File: src-backup/app/page.tsx ---*/
+PATH: src/app/page.tsx
+
+PURPOSE: Defines the main page layout, handling the responsive display of the Configurator and Chat components.
+
+SUMMARY: This component implements the application's primary responsive UI.
+- On mobile, it uses a state variable ('activeTab') to render tab buttons and toggle between showing <ConfiguratorTab /> or <ChatTab />.
+- On desktop (md: breakpoint), it switches to a 2-column layout, displaying the main <Configurator /> component and a sticky <ChatTab /> sidebar.
+- It is a client component ('use client') to manage the tab state.
+
+RELATES TO OTHER FILES:
+- This is the main page component rendered inside 'src/app/layout.tsx'.
+- It imports and arranges the two core pillars of the application:
+- '@/components/configurator/configurator' (and its mobile wrapper 'configurator-tab') as the main interactive area.
+- '@/components/chat/chat-tab' as the chat interface (either as a tab or a sidebar).
+
+IMPORTS:
+- useState from 'react'
+- ChatTab from '@/components/chat/chat-tab'
+- Configurator from '@/components/configurator/configurator'
+- ConfiguratorTab from '@/components/configurator/configurator-tab'
+
+/*--- File: src-backup/components/chat/bubble-area/chat-bubble-area.tsx ---*/
+PATH: src/components/chat/bubble-area/chat-bubble-area.tsx
+
+PURPOSE: Renders the primary display area for all chat messages and implements auto-scrolling to the latest message.
+
+SUMMARY: This is a **dumb display component** that takes an array of `messages` as a prop. It maps over this array, rendering each item as a `ChatBubble` component. The key feature of this component is its scroll management: it uses a `useRef` hook attached to an empty `div` at the bottom of the message list (`messagesEndRef`). A `useEffect` hook triggers `scrollIntoView({ behavior: 'smooth' })` every time the `messages` array updates (i.e., when a new message is sent or received), ensuring the newest message is always visible.
+
+RELATES TO OTHER FILES:
+- It is imported and utilized by 'src/components/chat/chat-tab.tsx', which manages the `messages` state and passes it down.
+- It imports and renders the individual message component, './chat-bubble.tsx'.
+- The message types it consumes align with the `ChatMessage` definition in '@/lib/chat-storage.ts'.
+
+IMPORTS:
+- React: useRef, useEffect
+- ChatBubble from './chat-bubble'
+
+EXPORTS:
+- default ChatBubbleArea (React functional component)
+
+/*--- File: src-backup/components/chat/bubble-area/chat-bubble.tsx ---*/
+PATH: src/components/chat/bubble-area/chat-bubble.tsx
+
+PURPOSE: Renders a single chat message, correctly styled and positioned based on its `variant` (incoming, outgoing, or loading).
+
+SUMMARY: This is a **dumb presentational component** that receives the message content and its `variant` via props. It uses conditional logic to determine the bubble's appearance and alignment:
+- **'outgoing'**: Aligned to the right, styled for the user.
+- **'incoming'** (or **'loading'**): Aligned to the left, styled for the assistant.
+- **'loading'**: If the variant is `'loading'`, it suppresses the message text and renders the `FadingBlocksLoader` component instead, providing visual feedback that the AI is processing the request.
+
+RELATES TO OTHER FILES:
+- It is imported and utilized by 'src/components/chat/bubble-area/chat-bubble-area.tsx', which maps over the session's message history and renders each message using this component.
+- It imports the specific loader component from './fading-blocks-loader.tsx' to handle the AI thinking state.
+
+IMPORTS:
+- React from 'react'
+- FadingBlocksLoader from './fading-blocks-loader'
+
+EXPORTS:
+- default ChatBubble (React functional component)
+
+/*--- File: src-backup/components/chat/bubble-area/fading-blocks-loader.tsx ---*/
+PATH: src/components/chat/bubble-area/fading-blocks-loader.tsx
+
+PURPOSE: Renders a visual loading animation to indicate that the AI (Gemini) backend is processing a user request.
+
+SUMMARY: This is a **dumb UI component** that displays a three-block "fading" animation. It is entirely self-contained, including its dedicated CSS styles and `@keyframes` animation definition within a `<style>` tag. This makes the animation independent of the global Tailwind configuration. The blocks fade in and out sequentially, creating a simple, visible indicator for the `loading` chat bubble variant.
+
+RELATES TO OTHER FILES:
+- This component is imported and used by 'src/components/chat/bubble-area/chat-bubble.tsx' when the `ChatMessage.variant` is set to `'loading'`.
+- It replaces the need for an external CSS file for this specific animation effect.
+
+IMPORTS:
+- React from 'react'
+
+EXPORTS:
+- default FadingBlocksLoader (React functional component)
+
+/*--- File: src-backup/components/chat/chat-tab.tsx ---*/
+PATH: src/components/chat/chat-tab.tsx
+
+PURPOSE: The central control component for the AI Chat Pillar (Pillar 2). It manages chat state, synchronizes with the Configurator, and orchestrates the AI request/response flow.
+
+SUMMARY: This is a core **smart component** that ties the chat UI, persistence, and the "Smarter Brain" (Configurator Context) together.
+1. **Bootstrap:** Loads chat history from Firestore (with local caching via `loadSession`).
+2. **Context Listener:** Uses a `useEffect` to listen for changes in `currentQuestion` from the `ConfiguratorContext`. If a new question is required, it posts the question as a bot message and saves it to Firestore, while ensuring no question is posted if the flow is finished (`finalProducts` exists) or while the AI is loading.
+3. **`handleSendMessage`:** This is the critical function for the AI flow:
+    - It immediately posts the user's message and a `variant: 'loading'` bubble (optimistic UI).
+    - It sends the user text to the `/api/chat` endpoint.
+    - Upon receiving the AI's JSON "form," it implements the **"Answer-then-Question"** sequence:
+        a. If `knowledgeBaseAnswer` exists, it atomically removes the `loading` bubble and posts the factual answer bubble, saving it to Firestore.
+        b. It then calls `applyExtractedFacets(aiJson)` on the context. This triggers the Smarter Brain, which finds the *next* logical question, which is then posted by the `useEffect` listener (step 2), completing the sequence.
+    - Errors and loading states are handled to ensure a clean UI transition.
+
+RELATES TO OTHER FILES:
+- **State Consumer:** Consumes `currentQuestion`, `finalProducts`, and `applyExtractedFacets` from 'src/context/ConfiguratorContext.tsx'.
+- **Persistence:** Imports Firestore functions (`saveMessageToFirestore`) from '@/lib/firestore.ts' to ensure permanent, offline-first chat history.
+- **AI Integration:** Sends requests to the Next.js API route 'src/app/api/chat/route.ts' and uses the type definition `ExtractedFacets` from '@/ai/genkit.ts'.
+- **UI Composites:** Renders the chat UI by importing and passing state to its children: 'src/components/chat/bubble-area/chat-bubble-area.tsx' and 'src/components/chat/footer-area/footer-area.tsx'.
+
+IMPORTS:
+- React: useEffect, useState, useRef
+- ChatBubbleArea from '@/components/chat/bubble-area/chat-bubble-area'
+- FooterArea from '@/components/chat/footer-area/footer-area'
+- type ChatSession, type ChatMessage, loadSession, createSession, saveSession from '@/lib/chat-storage'
+- saveMessage as saveMessageToFirestore from '@/lib/firestore'
+- useConfiguratorContext from '@/context/ConfiguratorContext'
+- type ExtractedFacets from '@/ai/genkit'
+
+EXPORTS:
+- ChatTab (React functional component)
+
+/*--- File: src-backup/components/chat/footer-area/footer-area.tsx ---*/
+PATH: src/components/chat/footer-area/footer-area.tsx
+
+PURPOSE: Renders the controlled input field and send button for the chat interface.
+
+SUMMARY: This is a **dumb UI component** responsible for handling user input. It uses local state (`inputValue`) to manage the text being typed. It accepts the `onSendMessage` callback (which is wired to the chat's AI logic) and a crucial `isLoading` boolean prop. The component uses the `isLoading` prop to disable the input field and the send button, as well as updating the placeholder text ("processando..."), preventing the user from submitting new queries while the AI is processing the last one. It handles sending messages via button click or the Enter key.
+
+RELATES TO OTHER FILES:
+- It is imported and rendered by 'src/components/chat/chat-tab.tsx', which provides the necessary `onSendMessage` function (the trigger for the AI fetch) and the `isLoading` state.
+- It operates strictly as a presenter, passing user input up to its parent for processing.
+
+IMPORTS:
+- React: useState
+- Send from 'lucide-react'
+
+EXPORTS:
+- default FooterArea (React functional component)
+
+/*--- File: src-backup/components/configurator/card.tsx ---*/
+PATH: src/components/global/card.tsx
+
+PURPOSE: To provide a flexible, styled, multi-part card component for the application's design system, based on shadcn/ui.
+
+SUMMARY: This file defines a set of reusable, composable Card components. It includes the main `Card` container and its constituent parts: `CardHeader`, `CardTitle`, `CardDescription`, `CardContent`, and `CardFooter`. Each component is built using `React.forwardRef` to allow parent components to access the underlying DOM element, and it uses the `cn()` utility to merge default Tailwind styles with any custom `className` props passed to it.
+
+RELATES TO OTHER FILES:
+- This is a foundational UI primitive file, part of the "global" design system.
+- It is imported by components like 'src/components/configurator/option-card.tsx' and 'src/components/configurator/result-product-card.tsx' to provide a consistent visual wrapper.
+- It imports the `cn` utility function from '@/lib/utils' for merging Tailwind CSS classes.
+
+IMPORTS:
+- React from "react"
+- cn from "@/lib/utils"
+
+EXPORTS:
+- Card (React component)
+- CardHeader (React component)
+- CardFooter (React component)
+- CardTitle (React component)
+- CardDescription (React component)
+- CardContent (React component)
+
+/*--- File: src-backup/components/configurator/configurator-tab.tsx ---*/
+PATH: src/components/configurator/configurator-tab.tsx
+
+PURPOSE: Provides a lightweight wrapper for the main Configurator component, allowing it to be imported as a named export for use in tabbed layouts.
+
+SUMMARY: This component exists solely to import the **default export** `Configurator` and re-export it as a **named export** `ConfiguratorTab`. This simplifies the logic in `src/app/page.tsx`, allowing it to toggle between `<ConfiguratorTab />` and `<ChatTab />` in the mobile view.
+
+RELATES TO OTHER FILES:
+- It is imported and rendered by 'src/app/page.tsx' specifically for the mobile tabbed layout.
+- It imports and renders the main `Configurator` component from './configurator.tsx'.
+
+IMPORTS:
+- Configurator from '@/components/configurator/configurator'
+
+EXPORTS:
+- ConfiguratorTab (React functional component)
+
+/*--- File: src-backup/components/configurator/configurator.tsx ---*/
+PATH: src/components/configurator/configurator.tsx
+
+PURPOSE: Renders the primary user interface for the "click-based" guided product configurator, handling either the question flow or the final result.
+
+SUMMARY: This is a core **smart component** that reads its state directly from the 'ConfiguratorContext'. It intelligently decides what to display based on the context's 'finalProducts' and 'currentQuestion' state.
+- If the 'finalProducts' array is populated, the flow is considered finished. It takes the first product, constructs a 'productForCard' object (mapping 'image' to 'picture', building a full URL from 'slug', and using 'fullProductName' for the label), and renders the 'ResultProductCard'.
+- If 'finalProducts' is empty but 'currentQuestion' exists, it renders the question's text and maps its 'options' array to multiple 'OptionCard' components.
+- It wires the 'setAttribute' context function to the 'onClick' prop of each 'OptionCard', making them the "dumb triggers" for the Smarter Brain.
+
+RELATES TO OTHER FILES:
+- It is rendered by 'src/app/page.tsx' (for the desktop view) and 'src/components/configurator/configurator-tab.tsx' (for the mobile view).
+- It is a primary consumer of state from 'src/context/ConfiguratorContext.tsx' via the 'useConfiguratorContext' hook.
+- It imports and renders its "dumb" child components: './option-card.tsx' and './result-product-card.tsx'.
+- It imports 'BASE_PRODUCT_URL' from 'src/lib/productDatabase.ts' to construct the final product link passed to the 'ResultProductCard'.
+
+IMPORTS:
+- useConfiguratorContext from '@/context/ConfiguratorContext'
+- OptionCard from './option-card'
+- ResultProductCard from './result-product-card'
+- BASE_PRODUCT_URL from '@/lib/productDatabase'
+
+EXPORTS:
+- default Configurator (React component)
+
+/*--- File: src-backup/components/global/button.tsx ---*/
+PATH: src/components/global/button.tsx
+
+PURPOSE: Provides a highly customizable and reusable Button component for the application's design system, using CVA for styling variations.
+
+SUMMARY: This file defines the core `Button` component, which is a foundational UI primitive. Styling is managed using the `class-variance-authority` (CVA) library, allowing for predefined `variant` (default, destructive, outline, ghost, etc.) and `size` (default, sm, lg, icon) options. The component utilizes `React.forwardRef` to allow access to the underlying DOM element and supports the `asChild` prop from `@radix-ui/react-slot`. If `asChild` is true, the button renders as a `Slot` (passing its styles and properties to a child element) instead of a native `<button>`, enabling composition. The utility `cn` is used to merge CVA-generated classes with any custom `className` passed by the user.
+
+RELATES TO OTHER FILES:
+- This is a foundational UI element used widely throughout the application, such as by 'src/components/header/restart-button.tsx' and potentially 'src/components/configurator/option-card.tsx' (if they use the Button primitive).
+- It relies on the class utility function imported from '@/lib/utils.ts' for Tailwind class merging.
+- It exports both the `Button` component and the `buttonVariants` object for external use (e.g., for creating components that share button styling).
+
+IMPORTS:
+- React from "react"
+- Slot from "@radix-ui/react-slot"
+- cva, type VariantProps from "class-variance-authority"
+- cn from "@/lib/utils"
+
+EXPORTS:
+- Button (React functional component)
+- buttonVariants (CVA object for button styling)
+
+/*--- File: src-backup/components/global/toast.tsx ---*/
+PATH: src/components/global/toast.tsx
+
+PURPOSE: Defines all foundational components for displaying temporary, dismissible, global notifications (toasts), based on the Radix UI Toast primitive.
+
+SUMMARY: This file provides the full suite of UI components necessary for toast notifications in the application's design system. It includes the required wrapper components (`ToastProvider`, `ToastViewport`) and the core presentational elements: `Toast` (the container, with styling variants for default/destructive), `ToastTitle`, `ToastDescription`, `ToastAction`, and `ToastClose` (the dismiss button). Styling is managed using CVA (`class-variance-authority`) and the utility function `cn` to ensure visual consistency and correct positioning and animation via the `ToastViewport`. It is marked as a client component (`"use client"`) due to its reliance on hooks and state management for animations and positioning.
+
+RELATES TO OTHER FILES:
+- This is a core UI primitive used globally. The `ToastProvider` and `ToastViewport` are typically rendered high up in the component tree, such as in 'src/app/layout.tsx', to ensure availability across the app.
+- It relies on the class utility function imported from '@/lib/utils.ts' for Tailwind class merging.
+- It exposes various types (`ToastProps`, `ToastActionElement`) for use by the hook that triggers the toast notifications.
+
+IMPORTS:
+- React from "react"
+- ToastPrimitives from "@radix-ui/react-toast"
+- cva, type VariantProps from "class-variance-authority"
+- X from "lucide-react"
+- cn from "@/lib/utils"
+
+EXPORTS:
+- type ToastProps
+- type ToastActionElement
+- ToastProvider
+- ToastViewport
+- Toast
+- ToastTitle
+- ToastDescription
+- ToastClose
+- ToastAction
+
+/*--- File: src-backup/components/global/toaster.tsx ---*/
+PATH: src/components/global/toaster.tsx
+
+PURPOSE: The global container component responsible for rendering and managing all active toast notifications.
+
+SUMMARY: This is the **Toaster component** that must be rendered once near the application root (e.g., in `layout.tsx`). It imports the `useToast` custom hook to access the centralized list of active toasts (`toasts`). It maps over this array and renders each item using the primitive components (`Toast`, `ToastTitle`, `ToastDescription`, `ToastClose`, etc.) imported from the global design system. It wraps all toasts in the required `ToastProvider` and positions them correctly via the `ToastViewport`.
+
+RELATES TO OTHER FILES:
+- **State Consumer:** It is the primary consumer of the state managed by the toast system, which is accessed via the custom hook `useToast` from '@/hooks/use-toast.ts'.
+- **UI Provider:** It imports and composes all primitive UI elements (`Toast`, `ToastProvider`, `ToastViewport`, etc.) from '@/components/global/toast.tsx'.
+- **Root Element:** It is imported and rendered by 'src/app/layout.tsx' to ensure global availability of notifications.
+
+IMPORTS:
+- useToast from "@/hooks/use-toast"
+- Toast, ToastClose, ToastDescription, ToastProvider, ToastTitle, ToastViewport from "@/components/global/toast"
+
+EXPORTS:
+- Toaster (React functional component)
+
+/*--- File: src-backup/components/header/app-header.tsx ---*/
+PATH: src/components/header/app-header.tsx
+
+PURPOSE: Renders the main, persistent application header, displaying the logo and user's configuration progress.
+
+SUMMARY: This component builds the responsive header (desktop and mobile layouts) that is shown on all pages. Its primary job is to connect to the 'ConfiguratorContext' to get the current 'fullProductName' string. It processes this string into an array ('historyArray') and passes it down to its child components ('ProgressTracker' and 'Breadcrumb') to render the breadcrumb trail. It also retrieves the 'reset' function from the context to wire up the reset buttons.
+
+RELATES TO OTHER FILES:
+- This component is imported and rendered by 'src/app/layout.tsx', placing it at the top of every page.
+- It is a "smart" component that consumes state directly from 'src/context/ConfiguratorContext.tsx' using the 'useConfiguratorContext' hook.
+- It imports and passes props to its "dumb" child components: './progress-tracker.tsx', './restart-button.tsx', and './breadcrumb.tsx'.
+
+IMPORTS:
+- Image from 'next/image'
+- useConfiguratorContext from '@/context/ConfiguratorContext'
+- ProgressTracker from './progress-tracker'
+- ResetButton from './restart-button'
+- Breadcrumb from './breadcrumb'
+
+/*--- File: src-backup/components/header/breadcrumb.tsx ---*/
+PATH: src/components/header/breadcrumb.tsx
+
+PURPOSE: Renders the configuration progress as a visually clear breadcrumb trail.
+
+SUMMARY: This is a **dumb UI component** that receives the current configuration steps as a string array (`history`) via props. It maps over this array to display the sequence of choices made by the user. It utilizes the `ChevronRight` icon as a separator between steps and applies distinct styling (e.g., `text-foreground`) to the final item in the array (the current step) to visually emphasize the user's current position in the flow.
+
+RELATES TO OTHER FILES:
+- It is imported and utilized by both 'src/components/header/app-header.tsx' (for mobile and desktop) and 'src/components/header/progress-tracker.tsx' (for the desktop view).
+- It consumes the processed history array generated by 'src/components/header/app-header.tsx' from the `fullProductName` string derived from the configuration context.
+
+IMPORTS:
+- ChevronRight from 'lucide-react'
+
+EXPORTS:
+- Breadcrumb (React functional component)
+
+/*--- File: src-backup/components/header/nav-link.tsx ---*/
+PATH: src/components/header/nav-link.tsx
+
+PURPOSE: A reusable component for client-side navigation links within the Next.js App Router, providing active state styling.
+
+SUMMARY: This component wraps the Next.js `Link` component. It uses the `usePathname` hook (requiring `'use client'`) to determine if the link's `href` matches the current route. Based on the comparison, it dynamically applies styling: an active link gets distinct styling (e.g., `text-white` and a `ring`), while inactive links receive hover effects (`hover:text-white`). This ensures users have clear visual feedback on the active tab or page.
+
+RELATES TO OTHER FILES:
+- This component is a foundational UI element that would typically be used within a primary navigation structure, such as 'src/components/header/app-header.tsx' or a desktop sidebar, though it is not explicitly used by the current `AppHeader`.
+- It relies on Next.js client-side hooks (`usePathname`) for functionality.
+
+IMPORTS:
+- Link from 'next/link'
+- usePathname from 'next/navigation'
+- ReactNode from 'react'
+
+/*--- File: src-backup/components/header/progress-tracker.tsx ---*/
+PATH: src/components/header/progress-tracker.tsx
+
+PURPOSE: To create a single, combined UI component for the desktop header that displays both the user's progress and the reset control.
+
+SUMMARY: This is a **dumb layout component** designed specifically for the desktop view. It receives the `history` array and the `onReset` function as props. It doesn't perform any logic itself; it simply passes the `onReset` prop to the `ResetButton` component and the `history` prop to the `Breadcrumb` component, arranging them in a flexible, responsive container.
+
+RELATES TO OTHER FILES:
+- It is imported and rendered exclusively by 'src/components/header/app-header.tsx' for its desktop layout.
+- It acts as a wrapper, importing and composing its two child components: './restart-button.tsx' and './breadcrumb.tsx'.
+
+IMPORTS:
+- ResetButton from './restart-button'
+- Breadcrumb from './breadcrumb'
+
+EXPORTS:
+- ProgressTracker (React functional component)
+
+/*--- File: src-backup/components/header/restart-button.tsx ---*/
+PATH: src/components/header/restart-button.tsx
+
+PURPOSE: Provides a standard, styled button for resetting the entire product configuration flow.
+
+SUMMARY: This is a **dumb UI component** that receives a single callback function, `onReset`, via props. It renders a `Button` component (from the global design system) with a "ghost" style, a small size, and the `RefreshCw` icon. When clicked, it executes the `onReset` function, which is provided by the `AppHeader` and connected to the `ConfiguratorContext.reset()` method, effectively clearing the user's selection and restarting the "Smarter Brain."
+
+RELATES TO OTHER FILES:
+- It is imported and used by 'src/components/header/app-header.tsx' (for the mobile layout) and 'src/components/header/progress-tracker.tsx' (for the desktop layout).
+- It relies on the generic `Button` component from '../global/button'.
+- The `onReset` function it triggers is sourced from `useConfiguratorContext().reset()` in the `AppHeader`.
+
+IMPORTS:
+- Button from "../global/button"
+- RefreshCw from "lucide-react"
+
+EXPORTS:
+- ResetButton (React functional component)
+
+/*--- File: src-backup/lib/chat-storage.ts ---*/
+PATH: src/lib/chat-storage.ts
+
+PURPOSE: Manages the data structures and retrieval logic for chat history, establishing a Firestore-first persistence policy.
+
+SUMMARY: This file defines the `ChatMessage` and `ChatSession` types used across the chat feature. The primary function, `loadSession`, implements the persistence strategy: it attempts to fetch ordered messages from the Firestore backend (which leverages IndexedDB for offline caching) using the provided `sessionId`. If the Firestore collection is non-empty, it reconstructs and returns the `ChatSession`. If Firestore is empty (or fails), it falls back to checking the deprecated `localStorage` key for legacy data before returning `null`. The `saveSession` function is stubbed out and logs a warning, enforcing the rule that all message writes must go through the dedicated Firestore functions (like `saveMessage` in `firestore.ts`) for centralized control and offline queuing.
+
+RELATES TO OTHER FILES:
+- **Database:** It imports the initialized Firestore instance `db` from './firebase.ts'.
+- **Persistence Logic:** It uses Firebase SDK functions (`collection`, `query`, `getDocs`, `orderBy`) to interact with Firestore.
+- **Consumer:** The exported `ChatMessage` and `ChatSession` types, along with the `loadSession` function, are imported and used by 'src/components/chat/chat-tab.tsx' during the application's bootstrap phase.
+
+IMPORTS:
+- db from './firebase'
+- collection, getDocs, query, orderBy from 'firebase/firestore'
+
+EXPORTS:
+- type ChatMessage
+- type ChatSession
+- createSession (Function to create new session metadata)
+- saveSession (Deprecated stub)
+- loadSession (Firestore-first retrieval function)
+
+/*--- File: src-backup/lib/configuratorEngine.ts ---*/
+PATH: src/lib/configuratorEngine.ts
+
+PURPOSE: Implements the core business logic (the "Smarter Brain") for the product configurator, handling filtering, question flow, and auto-skipping.
+
+SUMMARY: This file defines the core logic independent of React state management. It sets the deterministic question order (`FACET_ORDER`) and provides question definitions/labels (`FACET_DEFINITIONS`). Its main export, **`calculateNextUiState`**, takes the user's current selections and iteratively filters the entire `PRODUCT_CATALOG`. This function contains the crucial auto-skip logic (Rules 0, 1, and 1):
+1. **Rule 1 (1 Product):** Stops immediately if filtering results in only one remaining product.
+2. **Rule 2 (0 Options):** Skips an attribute if no remaining product has a value for that attribute.
+3. **Rule 3 (1 Option):** Auto-selects the value if only one valid option remains for an attribute and continues the logic loop (chaining).
+The loop continues until a question with multiple valid options is found, or the selection process is complete. It also includes specific logic for handling range-based attributes like `largura`.
+
+RELATES TO OTHER FILES:
+- **Data Source:** Imports the raw product data (`PRODUCT_CATALOG`) and the underlying `ProductType` from './productDatabase.ts'.
+- **State Manager:** The function `calculateNextUiState` is called by 'src/context/ConfiguratorContext.tsx' on every user interaction (manual click or AI batch update) to determine the next UI state.
+- **Data Typing:** Exports core types (`QuestionState`, `Option`, `FacetAttribute`, `Product`, `EngineResult`) for type safety in the Context and UI components.
+
+IMPORTS:
+- type Product as ProductType, PRODUCT_CATALOG from './productDatabase'
+
+EXPORTS:
+- type Product
+- type Option
+- type FacetAttribute
+- type QuestionState
+- type EngineResult
+- FACET_ORDER (Array of facet keys)
+- FACET_DEFINITIONS (Map of question titles and labels)
+- calculateNextUiState (The core logic function)
+

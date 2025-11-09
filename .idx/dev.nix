@@ -10,9 +10,20 @@
   ];
 
   # --- Environment Variables ---
-  # Add your Gemini API key here. It becomes available to all dev sessions.
+  # Defines all keys needed by the app
   env = {
+    # 1. For Genkit AI (Server-side)
+    #    (This was already in your v2 nix file)
     GOOGLE_GENAI_API_KEY = "AIzaSyDN1AXPjWaBVVHPSv0ZpujSGHrQ_1DJ6-U";
+
+    # 2. For Firebase Client SDK (Client-side)
+    #    (These are the keys you just provided)
+    NEXT_PUBLIC_FIREBASE_API_KEY = "AIzaSyDQjJCUM9zsXHLyPBfB6_UFk3SsIBdqYdc";
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = "gen-lang-client-0545699517.firebaseapp.com";
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID = "gen-lang-client-0545699517";
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = "gen-lang-client-0545699517.firebasestorage.app";
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = "253278659379";
+    NEXT_PUBLIC_FIREBASE_APP_ID = "1:253278659379:web:ab51004201ffa98fb5d446";
   };
 
   # --- IDX Workspace Configuration ---

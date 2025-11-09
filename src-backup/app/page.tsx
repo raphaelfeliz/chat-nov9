@@ -1,38 +1,36 @@
 /* *file-summary*
 PATH: src/app/page.tsx
 
-PURPOSE: Defines the main page layout, handling the responsive display
-         of the Configurator and Chat components.
+PURPOSE: Defines the main page layout, handling the responsive display of the Configurator and Chat components.
 
 SUMMARY: This component implements the application's primary responsive UI.
-         - On mobile, it uses a state variable ('activeTab') to render
-           tab buttons and toggle between <Configurator /> and <ChatCoPilot />.
-         - On desktop, it switches to a 2-column layout, displaying the
-           main <Configurator /> component and a sticky <ChatCoPilot /> sidebar.
+- On mobile, it uses a state variable ('activeTab') to render tab buttons and toggle between showing <ConfiguratorTab /> or <ChatTab />.
+- On desktop (md: breakpoint), it switches to a 2-column layout, displaying the main <Configurator /> component and a sticky <ChatTab /> sidebar.
+- It is a client component ('use client') to manage the tab state.
 
 RELATES TO OTHER FILES:
-- This is the main page component rendered inside `src/app/layout.tsx`.
-- It imports and arranges the two core feature pillars:
-  - `Configurator` from `src/features/configurator/Configurator.tsx`.
-  - `ChatCoPilot` from `src/features/chat/ChatCoPilot.tsx`.
+- This is the main page component rendered inside 'src/app/layout.tsx'.
+- It imports and arranges the two core pillars of the application:
+- '@/components/configurator/configurator' (and its mobile wrapper 'configurator-tab') as the main interactive area.
+- '@/components/chat/chat-tab' as the chat interface (either as a tab or a sidebar).
 
 IMPORTS:
 - useState from 'react'
-- ChatCoPilot from '@/features/chat/ChatCoPilot'
-- Configurator from '@/features/configurator/Configurator'
+- ChatTab from '@/components/chat/chat-tab'
+- Configurator from '@/components/configurator/configurator'
+- ConfiguratorTab from '@/components/configurator/configurator-tab'
 */
 
 'use client';
 
 import { useState } from 'react';
-// --- REFACTOR: Import from new 'features' paths ---
-import { ChatCoPilot } from '@/features/chat/ChatCoPilot';
-import Configurator from '@/features/configurator/Configurator';
+// --- FINAL FIX: Removed explicit '.tsx' extensions ---
+import { ChatTab } from '@/components/chat/chat-tab';
+import Configurator from '@/components/configurator/configurator';
+import { ConfiguratorTab } from '@/components/configurator/configurator-tab';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'configurator' | 'chat'>(
-    'configurator'
-  );
+  const [activeTab, setActiveTab] = useState<'configurator' | 'chat'>('configurator');
 
   return (
     <main className="flex-1 flex flex-col">
@@ -65,9 +63,8 @@ export default function Home() {
       <div className="flex flex-1">
         {/* Mobile View */}
         <div className="md:hidden w-full">
-          {/* --- REFACTOR: Simplified to use main components directly --- */}
-          {activeTab === 'configurator' && <Configurator />}
-          {activeTab === 'chat' && <ChatCoPilot />}
+          {activeTab === 'configurator' && <ConfiguratorTab />}
+          {activeTab === 'chat' && <ChatTab />}
         </div>
 
         {/* Desktop View */}
@@ -77,7 +74,7 @@ export default function Home() {
           </div>
           <div className="w-[400px] border-l">
             <div className="sticky top-0">
-              <ChatCoPilot />
+              <ChatTab />
             </div>
           </div>
         </div>

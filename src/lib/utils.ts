@@ -1,14 +1,24 @@
-/*
-*file-summary*
+/* *file-summary*
 PATH: src/lib/utils.ts
-PURPOSE: Provide a helper to safely compose and merge Tailwind CSS class names.
-SUMMARY: Combines clsx for conditional class concatenation with tailwind-merge for resolving conflicting styles,
-         producing clean, deduplicated class strings for React components.
-IMPORTS: clsx (conditional class utility), tailwind-merge (Tailwind-specific class resolver)
-EXPORTS: cn (utility function)
+
+PURPOSE: Provides common, low-level utility functions, primarily for styling.
+
+SUMMARY: This file's main export is the `cn()` function. This helper
+         utility (from `tailwind-merge` and `clsx`) intelligently
+         merges multiple Tailwind CSS class strings, resolving
+         conflicts and making conditional styling much cleaner.
+
+RELATES TO OTHER FILES:
+- This is a foundational utility.
+- It is imported by all UI primitives in `src/components/ui/`
+  (e.g., button.tsx, card.tsx, toast.tsx).
+
+IMPORTS:
+- type ClassValue, clsx from 'clsx'
+- twMerge from 'tailwind-merge'
 */
 
-import { clsx, type ClassValue } from "clsx"
+import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
 export function cn(...inputs: ClassValue[]) {

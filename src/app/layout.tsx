@@ -1,8 +1,36 @@
-import type {Metadata} from 'next';
+/* *file-summary*
+PATH: src/app/layout.tsx
+
+PURPOSE: Defines the global HTML shell for the entire Next.js application.
+
+SUMMARY: This component wraps all pages with shared UI and context providers.
+         It renders the <ConfiguratorProvider> (from 'core') to make
+         the global state available everywhere. It also renders the
+         persistent <AppHeader> (from 'features') and the global <Toaster>
+         (from 'components/ui').
+
+RELATES TO OTHER FILES:
+- This is the root of the React component tree.
+- Imports `ConfiguratorProvider` from `src/core/state/ConfiguratorContext.tsx`.
+- Imports `AppHeader` from `src/features/header/AppHeader.tsx`.
+- Imports `Toaster` from `src/components/ui/toaster.tsx`.
+
+IMPORTS:
+- Metadata from 'next'
+- ./globals.css
+- Toaster from '@/components/ui/toaster'
+- AppHeader from '@/features/header/AppHeader'
+- ConfiguratorProvider from '@/core/state/ConfiguratorContext'
+*/
+
+import type { Metadata } from 'next';
 import './globals.css';
-import { Toaster } from "@/components/global/toaster";
-import { AppHeader } from '@/components/header/app-header';
-import { ConfiguratorProvider } from '@/context/ConfiguratorContext';
+// --- REFACTOR: Import from new 'components/ui' path ---
+import { Toaster } from '@/components/ui/toaster';
+// --- REFACTOR: Import from new 'features' path ---
+import { AppHeader } from '@/features/header/AppHeader';
+// --- REFACTOR: Import from new 'core' path ---
+import { ConfiguratorProvider } from '@/core/state/ConfiguratorContext';
 
 export const metadata: Metadata = {
   title: 'Firebase Studio App',
@@ -19,7 +47,10 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap"
+          rel="stylesheet"
+        />
       </head>
       <body className="font-body antialiased flex flex-col min-h-screen">
         <ConfiguratorProvider>

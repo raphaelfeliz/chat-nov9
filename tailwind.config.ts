@@ -13,9 +13,12 @@ import type {Config} from 'tailwindcss';
 export default {
   darkMode: ['class'],
   content: [
-    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
+    // --- FIX: Added 'features' and made 'components' more specific ---
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/features/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/components/ui/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/core/**/*.{js,ts,jsx,tsx,mdx}', // Scan core just in case
+    // './src/pages/**/*.{js,ts,jsx,tsx,mdx}', // This line is likely no longer needed
   ],
   theme: {
     extend: {

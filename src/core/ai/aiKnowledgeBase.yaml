@@ -1,0 +1,177 @@
+faq_compacto:
+  regra_geral:
+    foco: "Responda sobre o que oferecemos"
+    limitacoes_e_excecoes: "Mencione apenas se perguntarem especificamente"
+
+  medidas:
+    sob_medida: true
+    observacoes: "Cada modelo tem limites mínimos e máximos definidos no catálogo"
+
+  perfil_aluminio_e_cores:
+    perfil: "Linha Suprema (bitola 25 mm)"
+    acabamento: ["pintura eletrostática a pó", "anodizado"]
+    cores_padrao: ["branco", "preto", "bronze (fosco)"]
+    cores_personalizadas: "sob consulta"
+
+  vidros:
+    padrao: "vidro temperado 6 mm"
+    maxim_ar_opcional: "vidro miniboreal 3 ou 4 mm"
+
+  acessorios:
+    marca: "Udinese"
+    opcionais:
+      - "tela mosquiteira"
+      - persiana_integrada:
+          observacao: "na versão motorizada inclui controle remoto"
+    sentido_abertura_configuravel: true
+
+  desempenho:
+    conformidade: "Normas de ar, água e vento — Região III"
+    acustico: "varia conforme o modelo"
+
+  instalacao:
+    executamos_instalacao: false
+    indicamos_tecnicos: true
+    metodos_fixacao: ["bucha e parafuso", "chumbado com massa", "espuma expansiva"]
+
+  preco_e_pagamento:
+    calculo: "Baseado em Largura x Altura; não por m²"
+    formas: ["PIX (5% de desconto)", "cartão em até 10x sem juros"]
+    condicao: "Pagamento integral no pedido"
+
+  prazos_e_logistica:
+    fabricacao_estimativa_dias_uteis: 30
+    variacao_por_cor:
+      branco_preto: "tende a ser mais rápido"
+      bronze: "pode demorar mais"
+    entrega: ["agendada", "promoções de frete grátis quando disponíveis"]
+
+  garantias_e_politicas:
+    garantia_dias: 30
+    devolucao: "não aplicável para produtos sob medida"
+    reportar_problemas_no_recebimento: true
+
+  limitacoes_e_excecoes:
+    tipos_de_porta_nao_oferecidos: ["pivotantes", "quadriculadas"]
+    tipos_de_vidro_nao_trabalhamos: ["duplo/insulado", "low-E", "laminado acústico"]
+    desempenho_termico:
+      perfis_thermal_break: false
+    pagamento_na_entrega: false
+
+o_que_vendemos:
+  - "Janelas"
+  - "Portas"
+
+familias:
+  janelas:
+    opcoes:
+      ventilacao_permanente_areas_servico: true
+    sistemas:
+      correr:
+        persiana:
+          disponivel: true
+          tipo: "integrada"
+          controle: ["manual", "motorizada"]
+          materiais_quando_tem_persiana: ["vidro"]
+          tamanhos_quando_tem_persiana:
+            folhas:
+              "2": "0,70-2,00 m"
+        sem_persiana:
+          materiais:
+            - material: "vidro"
+              folhas:
+                "2": "0,70-2,00 m"
+                "3": "1,00-3,00 m"
+                "4": "1,20-4,00 m"
+            - material: "vidro + veneziana"
+              folhas:
+                "3": "0,70-2,00 m"
+                "6": "1,40-3,00 m"
+      maxim_ar:
+        persiana:
+          disponivel: false
+        materiais: ["vidro"]
+        modulos:
+          "1": "0,40-1,00 m"
+          "2": "0,80-2,00 m"
+          "3": "1,20-3,00 m"
+
+  portas:
+    sistemas:
+      correr:
+        persiana:
+          disponivel: true
+          tipo: "integrada"
+          controle: ["manual", "motorizada"]
+          materiais_quando_tem_persiana: ["vidro"]
+          tamanhos_quando_tem_persiana:
+            folhas:
+              "2": "0,80-2,50 m"
+        sem_persiana:
+          materiais:
+            - material: "vidro"
+              folhas:
+                "2": "0,70-2,00 m"
+                "3": "1,30-3,00 m"
+                "4": "1,50-3,00 m"
+            - material: "vidro + veneziana"
+              folhas:
+                "3": "1,00-2,50 m"
+                "6": "1,40-3,00 m"
+      giro:
+        persiana:
+          disponivel: false
+        materiais:
+          - material: "lambri"
+            folhas:
+              "1": "0,50-1,00 m"
+              "2": "0,80-2,00 m"
+          - material: "veneziana"
+            folhas:
+              "1": "0,50-1,00 m"
+              "2": "0,80-2,00 m"
+          - material: "vidro"
+            folhas:
+              "1": "0,50-1,00 m"
+              "2": "0,80-2,00 m"
+          - material: "vidro + lambri"
+            folhas:
+              "1": "0,50-1,00 m"
+              "2": "0,80-2,00 m"
+          - material: "vidro + veneziana"
+            folhas:
+              "1": "0,50-1,00 m"
+              "2": "0,80-2,00 m"
+
+regras_uteis:
+  janelas:
+    - "Persiana só existe nas janelas de correr."
+    - "Se há persiana, o material é sempre vidro."
+    - "Mais folhas → vãos maiores. Em Maxim-Ar, pense em módulos (1/2/3)."
+  portas:
+    - "Persiana só existe nas portas de correr."
+    - "Com persiana integrada → sempre vidro."
+    - "Portas de giro não têm persiana; escolha pelo material e pelo nº de folhas."
+
+passo_a_passo_de_escolha:
+  - passo: 1
+    pergunta: "Categoria?"
+    opcoes: ["janela", "porta"]
+  - passo: 2
+    pergunta: "Sistema de abertura?"
+    opcoes_por_categoria:
+      janela: ["correr", "maxim-ar"]
+      porta: ["correr", "giro"]
+  - passo: 3
+    pergunta: "Precisa de persiana integrada?"
+    observacao: "Só faz sentido em modelos de correr; se sim → escolher manual ou motorizada."
+  - passo: 4
+    pergunta: "Material de preenchimento?"
+    opcoes_gerais: ["vidro", "vidro + veneziana", "lambri", "veneziana", "vidro + lambri"]
+    observacoes:
+      - "Em janelas/portas de correr COM persiana, o material é sempre vidro."
+      - "Em janelas Maxim-Ar, o material é vidro."
+  - passo: 5
+    pergunta: "Qual a largura do vão?"
+    efeito: "Define o nº de folhas (ou módulos no Maxim-Ar) disponível para aquele conjunto."
+
