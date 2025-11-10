@@ -14,7 +14,7 @@
   env = {
     # 1. For Genkit AI (Server-side)
     #    (This was already in your v2 nix file)
-    GOOGLE_GENAI_API_KEY = "AIzaSyB3_9EL3jQLDU2Y25qQ7I5q796V-v0hqHU";
+    GOOGLE_GENAI_API_KEY = "AIzaSyDIp8J2_2_WpmX3EKx4dij-dP3No2WiXLc";
 
     # 2. For Firebase Client SDK (Client-side)
     #    (These are the keys you just provided)

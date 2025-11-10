@@ -4,8 +4,10 @@ PATH: src/core/persistence/chatHistory.ts
 PURPOSE: To centralize all database read/write interactions for chat history.
 
 SUMMARY: This file abstracts all Firestore logic for the chat feature.
-         It now provides functions to load/save the parent session
-         (including contact info) and the messages subcollection.
+         It provides functions to load/save the parent session (contact info)
+         and the messages subcollection. The `saveMessage` function now
+         accepts and stores the message `variant` to ensure UI
+         consistency on reload (e.g., for 'whatsapp-link' bubbles).
 
 RELATES TO OTHER FILES:
 - Imports the `db` instance from `./firebase.ts`.
@@ -95,7 +97,11 @@ export async function loadSession(
         sender: data.sender,
         text: data.text,
         timestamp: normalizeTimestamp(data.timestamp),
-        variant: data.sender === 'user' ? 'outgoing' : 'incoming',
+        // --- 🛟 BUG FIX: Load the variant from DB ---
+        // 1. Try to read the saved variant.
+        // 2. If it's missing (old message), fall back to the old logic.
+        variant:
+          data.variant || (data.sender === 'user' ? 'outgoing' : 'incoming'),
       } as ChatMessage;
     });
 
@@ -119,7 +125,6 @@ export async function loadSession(
     );
     console.groupEnd();
     return session;
-
   } catch (err) {
     console.error('[chatHistory] ❌ Firestore load error:', err);
     console.groupEnd();
@@ -162,24 +167,28 @@ export async function updateSessionContactInfo(
   }
 }
 
-
 // --SECTION: CHAT MESSAGES (SUBCOLLECTION) LOGIC
 
 /**
  * Saves a single chat message to the 'messages' subcollection.
+ * --- 🛟 BUG FIX: Now accepts a data object to include the 'variant'.
  */
 export async function saveMessage(
   sessionId: string,
-  sender: 'user' | 'bot' | 'assistant',
-  text: string
+  messageData: {
+    sender: 'user' | 'bot' | 'assistant';
+    text: string;
+    variant: ChatMessage['variant'];
+  }
 ): Promise<string | null> {
   try {
     // This saves to `chats/{sessionId}/messages/{messageId}`
     const docRef = await addDoc(
       collection(db, 'chats', sessionId, 'messages'),
       {
-        sender: sender,
-        text: text,
+        sender: messageData.sender,
+        text: messageData.text,
+        variant: messageData.variant, // <-- THE FIX: Save the variant
         timestamp: Timestamp.now(), // Use Firestore server timestamp
       }
     );

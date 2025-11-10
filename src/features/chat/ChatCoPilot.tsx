@@ -6,7 +6,9 @@ PURPOSE: The "smart" controller for the AI Chat feature (Pillar 2).
 SUMMARY: This is the "chat logic folder." It connects to the core logic,
          manages all chat state (loading, message history), and orchestrates
          the "Answer-then-Question" sequence. It consumes the
-         ConfiguratorContext, calls the AI API, and saves to persistence.
+         ConfiguratorContext, calls the AI API, and orchestrates persistence
+         by passing complete message objects (including `variant`)
+         to the `chatHistory` service.
          It passively saves contact info, actively prompts for it,
          and handles the "talk to human" handover flow. This file contains
          bug fixes for the handover flow logic.
@@ -59,7 +61,6 @@ import { ChatInput } from './ui/ChatInput';
 // Import FACET_ORDER to iterate selectedOptions for the WA link
 import { FACET_ORDER } from '@/core/engine/configuratorEngine';
 
-
 // --- NEW (Debug Logging) ---
 // Set to false for production
 const DEBUG = true;
@@ -85,7 +86,7 @@ export function ChatCoPilot() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [bootReady, setBootReady] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // --- Get state and functions from our "Smarter Brain" Context ---
   const {
     selectedOptions, // <-- NEW: Get all selections for WhatsApp link
@@ -100,7 +101,6 @@ export function ChatCoPilot() {
   // --- UPDATED (Phase 3.3.5 Bug Fix) ---
   // Use useRef instead of useState for synchronous state checking
   const isHandoverActive = useRef(false);
-
 
   // --SECTION: BOOTSTRAP (Firestore-first)
   useEffect(() => {
@@ -123,7 +123,8 @@ export function ChatCoPilot() {
         setMessages([]);
         log('created new session (empty).');
       }
-    })().catch(e => console.error('[ChatCoPilot] bootstrap error:', e))
+    })()
+      .catch((e) => console.error('[ChatCoPilot] bootstrap error:', e))
       .finally(() => {
         setBootReady(true);
         logGroupEnd();
@@ -139,7 +140,12 @@ export function ChatCoPilot() {
   useEffect(() => {
     // --- UPDATED (Phase 3.3.5 Bug Fix) ---
     // Do not post configurator questions if we are in a human handover
-    if (!bootReady || !currentQuestion || finalProducts || isHandoverActive.current) {
+    if (
+      !bootReady ||
+      !currentQuestion ||
+      finalProducts ||
+      isHandoverActive.current
+    ) {
       log('Question listener skipped (bootReady/currentQ/final/handover)');
       return;
     }
@@ -169,7 +175,12 @@ export function ChatCoPilot() {
         appBubble,
       ]);
       lastPostedQuestionRef.current = newQuestionText;
-      saveMessageToFirestore(sessionId, 'bot', newQuestionText);
+      // --- 🛟 BUG FIX: Pass full message object to save ---
+      saveMessageToFirestore(sessionId, {
+        sender: 'bot',
+        text: newQuestionText,
+        variant: 'incoming',
+      });
     }
   }, [currentQuestion, finalProducts, messages, bootReady, sessionId, log]);
 
@@ -179,17 +190,31 @@ export function ChatCoPilot() {
    */
   useEffect(() => {
     // --- UPDATED (Phase 3.3.5 Bug Fix) ---
-    if (!bootReady || !finalProducts || !session || activePromptFiredRef.current || isHandoverActive.current) {
+    if (
+      !bootReady ||
+      !finalProducts ||
+      !session ||
+      activePromptFiredRef.current ||
+      isHandoverActive.current
+    ) {
       return; // Not ready, or no product, or no session, or already fired
     }
 
     // If we have a product AND we don't know the user's name
     if (finalProducts.length > 0 && !session.userName) {
-      log('Active Prompt: Final product found, user name is missing. Asking for name.');
-      const promptText = "Encontrei seu produto! Para salvar esta cotação, com quem eu falo?";
-      
-      saveMessageToFirestore(sessionId, 'bot', promptText);
-      
+      log(
+        'Active Prompt: Final product found, user name is missing. Asking for name.'
+      );
+      const promptText =
+        'Encontrei seu produto! Para salvar esta cotação, com quem eu falo?';
+
+      // --- 🛟 BUG FIX: Pass full message object to save ---
+      saveMessageToFirestore(sessionId, {
+        sender: 'bot',
+        text: promptText,
+        variant: 'incoming',
+      });
+
       const ts = Date.now();
       const appBubble: ChatMessage = {
         id: String(ts),
@@ -199,12 +224,11 @@ export function ChatCoPilot() {
         variant: 'incoming',
       };
       setMessages((prev) => [...prev, appBubble]);
-      
+
       activePromptFiredRef.current = true; // Mark as fired
       lastPostedQuestionRef.current = promptText;
     }
   }, [finalProducts, session, bootReady, log]); // Added isHandoverActive.current
-
 
   // --SECTION: SEND HANDLER
   const handleSendMessage = async (text: string) => {
@@ -246,7 +270,12 @@ export function ChatCoPilot() {
     setMessages((prev) => [...prev, optimistic, loadingBubble]);
 
     // 2) Firestore mirror (Run in background)
-    saveMessageToFirestore(sessionId, 'user', trimmed);
+    // --- 🛟 BUG FIX: Pass full message object to save ---
+    saveMessageToFirestore(sessionId, {
+      sender: 'user',
+      text: trimmed,
+      variant: 'outgoing',
+    });
 
     try {
       // 3) AI Request
@@ -266,7 +295,7 @@ export function ChatCoPilot() {
       log('← AI response received.');
       if (DEBUG) console.log('JSON Form:', aiJson); // Use console.log for object
       logGroupEnd();
-      
+
       const ts = Date.now();
       const bubblesToPost: ChatMessage[] = [];
       let didFollowUp = false; // Prevents configurator from running
@@ -274,13 +303,20 @@ export function ChatCoPilot() {
 
       // --- UPDATED (Bug Fix) ---
       // 5) Passive Contact Save (RUNS FIRST)
-      const contactData: { userName?: string; userEmail?: string; userPhone?: string } = {};
-      if (aiJson.userName && aiJson.userName !== 'null') contactData.userName = aiJson.userName;
-      if (aiJson.userEmail && aiJson.userEmail !== 'null') contactData.userEmail = aiJson.userEmail;
-      if (aiJson.userPhone && aiJson.userPhone !== 'null') contactData.userPhone = aiJson.userPhone;
+      const contactData: {
+        userName?: string;
+        userEmail?: string;
+        userPhone?: string;
+      } = {};
+      if (aiJson.userName && aiJson.userName !== 'null')
+        contactData.userName = aiJson.userName;
+      if (aiJson.userEmail && aiJson.userEmail !== 'null')
+        contactData.userEmail = aiJson.userEmail;
+      if (aiJson.userPhone && aiJson.userPhone !== 'null')
+        contactData.userPhone = aiJson.userPhone;
 
       const hasNewContactInfo = Object.keys(contactData).length > 0;
-      
+
       if (hasNewContactInfo) {
         log('Passively saving contact info:', contactData);
         await updateSessionContactInfo(sessionId, contactData);
@@ -291,8 +327,14 @@ export function ChatCoPilot() {
 
       // 6) Acknowledgment Rule
       if (hasNewContactInfo) {
-        const currentName = contactData.userName || (localSession.userName && localSession.userName !== 'null' ? localSession.userName : null);
-        const ackText = currentName ? `Grato, ${currentName}!` : "Grato, recebi seus dados!";
+        const currentName =
+          contactData.userName ||
+          (localSession.userName && localSession.userName !== 'null'
+            ? localSession.userName
+            : null);
+        const ackText = currentName
+          ? `Grato, ${currentName}!`
+          : 'Grato, recebi seus dados!';
         log(`Adding Acknowledgment bubble: "${ackText}"`);
         bubblesToPost.push({
           id: `ack-${ts}`,
@@ -315,7 +357,9 @@ export function ChatCoPilot() {
           log('User has info, posting WA link directly.');
           const whatsAppLink = generateWhatsAppLink({
             userName: localSession.userName,
-            facets: FACET_ORDER.map(f => selectedOptions[f]).filter(Boolean) as string[],
+            facets: FACET_ORDER.map((f) => selectedOptions[f]).filter(
+              Boolean
+            ) as string[],
           });
           bubblesToPost.push({
             id: `wa-link-${ts + 1}`,
@@ -328,7 +372,8 @@ export function ChatCoPilot() {
         } else {
           // We need info, so ask the question
           log('User has no info. Posting handover question.');
-          const handoverText = "Claro, posso te passar para o especialista. Qual seu whatsapp? Ou prefere por email?";
+          const handoverText =
+            'Claro, posso te passar para o especialista. Qual seu whatsapp? Ou prefere por email?';
           bubblesToPost.push({
             id: `handover-${ts + 1}`,
             sender: 'assistant',
@@ -337,22 +382,24 @@ export function ChatCoPilot() {
             variant: 'incoming',
           });
         }
-      } 
+      }
       // --- BUG FIX (Logic Failure) ---
       // This logic now runs *regardless* of what's in 'knowledgeBaseAnswer'.
       // If the handover is active, we *only* care about contact info
       // to post the WA link.
       else if (isHandoverActive.current) {
         didFollowUp = true; // This is a "follow up"
-        
+
         if (hasNewContactInfo) {
           log('Handover complete (reply). Posting WA Link.');
           isHandoverActive.current = false; // End the handover mode
           activePromptFiredRef.current = true; // Prevent "com quem eu falo" from firing
-          
+
           const whatsAppLink = generateWhatsAppLink({
             userName: localSession.userName,
-            facets: FACET_ORDER.map(f => selectedOptions[f]).filter(Boolean) as string[],
+            facets: FACET_ORDER.map((f) => selectedOptions[f]).filter(
+              Boolean
+            ) as string[],
           });
 
           bubblesToPost.push({
@@ -362,45 +409,60 @@ export function ChatCoPilot() {
             timestamp: ts + 1,
             variant: 'whatsapp-link',
           });
-          
         } else {
           log('Handover replied with no contact info.');
           bubblesToPost.push({
             id: `handover-fail-${ts + 1}`,
             sender: 'assistant',
-            text: "Entendido. Se mudar de ideia, é só pedir para falar com um especialista.",
+            text: 'Entendido. Se mudar de ideia, é só pedir para falar com um especialista.',
             timestamp: ts + 1,
             variant: 'incoming',
           });
           isHandoverActive.current = false; // End the handover mode anyway
         }
       }
-      
+
       // 9) Standard Configurator Follow-ups
-      else if (!isHandoverActive.current && lastAppMessage && !aiJson.knowledgeBaseAnswer) {
-        if (lastAppMessage.text.includes('com quem eu falo?') && (aiJson.userName && aiJson.userName !== 'null')) {
+      else if (
+        !isHandoverActive.current &&
+        lastAppMessage &&
+        !aiJson.knowledgeBaseAnswer
+      ) {
+        if (
+          lastAppMessage.text.includes('com quem eu falo?') &&
+          aiJson.userName &&
+          aiJson.userName !== 'null'
+        ) {
           bubblesToPost.push({
             id: `followup-${ts + 1}`,
             sender: 'assistant',
-            text: "Obrigado! Qual o seu melhor email?",
+            text: 'Obrigado! Qual o seu melhor email?',
             timestamp: ts + 1,
             variant: 'incoming',
           });
           didFollowUp = true;
-        } else if (lastAppMessage.text.includes('qual o seu melhor email?') && (aiJson.userEmail && aiJson.userEmail !== 'null')) {
+        } else if (
+          lastAppMessage.text.includes('qual o seu melhor email?') &&
+          aiJson.userEmail &&
+          aiJson.userEmail !== 'null'
+        ) {
           bubblesToPost.push({
             id: `followup-${ts + 1}`,
             sender: 'assistant',
-            text: "Perfeito. E para finalizar, qual seu WhatsApp/telefone?",
+            text: 'Perfeito. E para finalizar, qual seu WhatsApp/telefone?',
             timestamp: ts + 1,
             variant: 'incoming',
           });
           didFollowUp = true;
-        } else if (lastAppMessage.text.includes('qual seu WhatsApp/telefone?') && (aiJson.userPhone && aiJson.userPhone !== 'null')) {
+        } else if (
+          lastAppMessage.text.includes('qual seu WhatsApp/telefone?') &&
+          aiJson.userPhone &&
+          aiJson.userPhone !== 'null'
+        ) {
           bubblesToPost.push({
             id: `followup-${ts + 1}`,
             sender: 'assistant',
-            text: "Tudo certo! Recebi seus dados. 👍",
+            text: 'Tudo certo! Recebi seus dados. 👍',
             timestamp: ts + 1,
             variant: 'incoming',
           });
@@ -410,7 +472,13 @@ export function ChatCoPilot() {
 
       // 10) KB Answer (if no other main reply was set)
       const kbAnswer = aiJson.knowledgeBaseAnswer;
-      if (!didFollowUp && !isHandoverActive.current && (kbAnswer && kbAnswer.trim() !== '' && kbAnswer.trim() !== 'null')) {
+      if (
+        !didFollowUp &&
+        !isHandoverActive.current &&
+        kbAnswer &&
+        kbAnswer.trim() !== '' &&
+        kbAnswer.trim() !== 'null'
+      ) {
         log(`Adding KB answer bubble: "${kbAnswer}"`);
         bubblesToPost.push({
           id: `kb-${ts + 1}`,
@@ -420,7 +488,7 @@ export function ChatCoPilot() {
           variant: 'incoming',
         });
       }
-      
+
       // 11) Post Bubbles & Fix Hanging Loader
       if (bubblesToPost.length > 0) {
         log(`Posting ${bubblesToPost.length} bot replies...`);
@@ -428,16 +496,22 @@ export function ChatCoPilot() {
           ...prev.filter((m) => m.variant !== 'loading'),
           ...bubblesToPost,
         ]);
+        // --- 🛟 BUG FIX: Pass full message object to save ---
         // Save all new bubbles to Firestore
         for (const bubble of bubblesToPost) {
-          saveMessageToFirestore(sessionId, 'bot', bubble.text);
+          saveMessageToFirestore(sessionId, {
+            sender: bubble.sender,
+            text: bubble.text,
+            variant: bubble.variant,
+          });
         }
-        lastPostedQuestionRef.current = bubblesToPost[bubblesToPost.length - 1].text;
+        lastPostedQuestionRef.current =
+          bubblesToPost[bubblesToPost.length - 1].text;
       } else {
         log('No bot replies. Removing loading bubble.');
         setMessages((prev) => prev.filter((m) => m.variant !== 'loading'));
       }
-      
+
       // 12) Apply AI Form to Context
       if (!didFollowUp && !isHandoverActive.current) {
         log('Applying facets to ConfiguratorContext.');
@@ -470,7 +544,7 @@ export function ChatCoPilot() {
 
   // --SECTION: RENDER
   return (
-    <div className="bg-[#0d1a26] flex flex-col h-[80vh] text-white">
+    <div className="bg-[#0d1a26] flex flex-col h-[92vh] text-white">
       <ChatDisplay messages={messages ?? []} />
       <ChatInput onSendMessage={handleSendMessage} isLoading={isLoading} />
     </div>
