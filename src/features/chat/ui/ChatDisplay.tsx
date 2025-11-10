@@ -6,7 +6,8 @@ PURPOSE: A "dumb" visual component to render the scrollable message display area
 SUMMARY: This component maps over the provided `messages` array and renders each
          as a `ChatBubble` component. It includes a `useEffect` hook that
          auto-scrolls the view to the bottom (to the `messagesEndRef`)
-         whenever the 'messages' prop is updated.
+         whenever the 'messages' prop is updated. This file was updated
+         to pass the correct 'message' object prop to its child.
 
 RELATES TO OTHER FILES:
 - This is a "dumb" UI component.
@@ -48,10 +49,12 @@ export function ChatDisplay({ messages = [] }: ChatDisplayProps) {
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-4">
       {(messages ?? []).map((msg) => (
+        // --- BUG FIX ---
+        // Pass the *entire* 'msg' object as the 'message' prop,
+        // as required by the new ChatBubble component.
         <ChatBubble
           key={String(msg.id)}
-          message={msg.text}
-          variant={msg.variant}
+          message={msg}
         />
       ))}
       {/* --- This empty div acts as the "anchor" for the auto-scroll ref --- */}

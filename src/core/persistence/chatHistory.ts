@@ -4,9 +4,8 @@ PATH: src/core/persistence/chatHistory.ts
 PURPOSE: To centralize all database read/write interactions for chat history.
 
 SUMMARY: This file abstracts all Firestore logic for the chat feature.
-         It provides a function to load an entire session (read) and
-         a function to save a single message (write). It imports the
-         initialized `db` instance and the shared data types.
+         It now provides functions to load/save the parent session
+         (including contact info) and the messages subcollection.
 
 RELATES TO OTHER FILES:
 - Imports the `db` instance from `./firebase.ts`.
@@ -31,9 +30,16 @@ import {
   query,
   orderBy,
   Timestamp,
+  // --- NEW (Phase 2.2.2) ---
+  // Import functions for parent document operations
+  doc,
+  getDoc,
+  setDoc,
 } from 'firebase/firestore';
 // --- REFACTOR: Import types from new 'core' path ---
 import { type ChatMessage, type ChatSession } from './types';
+
+// --SECTION: HELPER FUNCTIONS
 
 /**
  * 🛟 --- FIX ---
@@ -54,53 +60,66 @@ function normalizeTimestamp(timestamp: any): number {
   return Date.now();
 }
 
+// --SECTION: CHAT SESSION (PARENT DOCUMENT) LOGIC
+
 /**
- * Loads a chat session from Firestore, prioritizing the offline cache.
- * (Logic from old chat-storage.ts)
+ * Loads a chat session from Firestore.
+ * This now loads the PARENT document and its MESSAGES subcollection.
  */
 export async function loadSession(
   sessionId: string
 ): Promise<ChatSession | null> {
   console.groupCollapsed(`[chatHistory] loadSession (${sessionId})`);
   try {
-    const q = query(
+    // 1. Get the parent session document
+    const sessionRef = doc(db, 'chats', sessionId);
+    const sessionSnap = await getDoc(sessionRef);
+
+    if (!sessionSnap.exists()) {
+      console.info('[chatHistory] No session document found in Firestore.');
+      console.groupEnd();
+      return null;
+    }
+
+    // 2. Get the messages from the subcollection
+    const messagesQuery = query(
       collection(db, 'chats', sessionId, 'messages'),
       orderBy('timestamp', 'asc')
     );
-    const snapshot = await getDocs(q);
+    const messagesSnapshot = await getDocs(messagesQuery);
 
-    if (!snapshot.empty) {
-      const messages: ChatMessage[] = snapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          sender: data.sender,
-          text: data.text,
-          // --- FIX: Use the 'defensive' helper function ---
-          timestamp: normalizeTimestamp(data.timestamp),
-          variant: data.sender === 'user' ? 'outgoing' : 'incoming',
-        } as ChatMessage;
-      });
+    const messages: ChatMessage[] = messagesSnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        sender: data.sender,
+        text: data.text,
+        timestamp: normalizeTimestamp(data.timestamp),
+        variant: data.sender === 'user' ? 'outgoing' : 'incoming',
+      } as ChatMessage;
+    });
 
-      const session: ChatSession = {
-        sessionId,
-        createdAt: messages[0]?.timestamp ?? Date.now(),
-        updatedAt: messages[messages.length - 1]?.timestamp ?? Date.now(),
-        messages,
-        meta: { version: 1, device: 'web' },
-      };
+    // 3. Merge the session data and messages
+    const sessionData = sessionSnap.data();
+    const session: ChatSession = {
+      sessionId: sessionSnap.id,
+      createdAt: sessionData.createdAt || Date.now(),
+      updatedAt: sessionData.updatedAt || Date.now(),
+      meta: sessionData.meta || { version: 1, device: 'web' },
+      // Add contact info
+      userName: sessionData.userName || null,
+      userEmail: sessionData.userEmail || null,
+      userPhone: sessionData.userPhone || null,
+      // Add messages (which are not stored on the parent doc)
+      messages: messages,
+    };
 
-      console.info(
-        `[chatHistory] ✅ Loaded ${messages.length} messages from Firestore (cached or live)`
-      );
-      console.groupEnd();
-      return session;
-    }
-
-    // --- REFACTOR: Removed legacy localStorage fallback for simplicity ---
-    console.info('[chatHistory] No data found in Firestore.');
+    console.info(
+      `[chatHistory] ✅ Loaded session and ${messages.length} messages from Firestore (cached or live)`
+    );
     console.groupEnd();
-    return null;
+    return session;
+
   } catch (err) {
     console.error('[chatHistory] ❌ Firestore load error:', err);
     console.groupEnd();
@@ -109,8 +128,45 @@ export async function loadSession(
 }
 
 /**
- * Saves a single chat message to the Firestore database.
- * (Logic from old firestore.ts)
+ * Creates the initial parent session document in Firestore.
+ */
+export async function saveInitialSession(session: ChatSession): Promise<void> {
+  const { messages, ...sessionData } = session; // Separate messages from session data
+  const sessionRef = doc(db, 'chats', session.sessionId);
+  try {
+    // This creates the document `chats/{sessionId}`
+    await setDoc(sessionRef, sessionData);
+  } catch (e) {
+    console.error('[chatHistory] ❌ Error creating initial session document: ', e);
+  }
+}
+
+/**
+ * Updates the contact info on the parent session document.
+ */
+export async function updateSessionContactInfo(
+  sessionId: string,
+  contactData: {
+    userName?: string;
+    userEmail?: string;
+    userPhone?: string;
+  }
+): Promise<void> {
+  const sessionRef = doc(db, 'chats', sessionId);
+  try {
+    // Use setDoc with merge: true to create or update fields
+    // without overwriting the whole document.
+    await setDoc(sessionRef, contactData, { merge: true });
+  } catch (e) {
+    console.error('[chatHistory] ❌ Error updating contact info: ', e);
+  }
+}
+
+
+// --SECTION: CHAT MESSAGES (SUBCOLLECTION) LOGIC
+
+/**
+ * Saves a single chat message to the 'messages' subcollection.
  */
 export async function saveMessage(
   sessionId: string,
@@ -118,6 +174,7 @@ export async function saveMessage(
   text: string
 ): Promise<string | null> {
   try {
+    // This saves to `chats/{sessionId}/messages/{messageId}`
     const docRef = await addDoc(
       collection(db, 'chats', sessionId, 'messages'),
       {
@@ -133,9 +190,10 @@ export async function saveMessage(
   }
 }
 
+// --SECTION: LOCAL SESSION CREATION
+
 /**
- * Helper to create a new chat session template.
- * (Logic from old chat-storage.ts)
+ * Helper to create a new chat session template (in-memory).
  */
 export function createSession(): ChatSession {
   const now = Date.now();
@@ -145,10 +203,15 @@ export function createSession(): ChatSession {
     sessionId,
     createdAt: now,
     updatedAt: now,
-    messages: [],
+    messages: [], // Starts empty
     meta: {
       version: 1,
       device: 'web',
     },
+    // --- NEW (Phase 2.2.2) ---
+    // Initialize new fields
+    userName: null,
+    userEmail: null,
+    userPhone: null,
   };
 }

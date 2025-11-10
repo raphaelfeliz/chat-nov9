@@ -1,20 +1,19 @@
 /* *file-summary*
 PATH: src/core/ai/genkit.ts
-
 PURPOSE: Configure Genkit/Gemini to act as a structured JSON "form-filler" AND Q&A assistant.
-
 SUMMARY: Initializes Gemini 2.5-flash and defines `extractAttributesFromText`.
-          This flow performs two tasks:
-          1) Facet Extraction: Extracts product attributes into their respective keys.
-          2) Q&A: Answers factual questions using an injected Knowledge Base.
-          It forces Gemini to return all keys (7 total) with extracted values or null.
-
+         This flow performs four tasks:
+         1) Facet Extraction: Extracts product attributes.
+         2) Q&A: Answers factual questions using an injected Knowledge Base.
+         3) Contact Extraction: Passively extracts user's name, email, and phone.
+         4) Handover Intent: Detects if the user wants to talk to a human.
+         It forces Gemini to return all keys (11 total) with extracted values or null.
+         This file contains bug fixes to the system prompt.
 RELATES TO OTHER FILES:
 - This is the "Dual-Task AI" logic.
 - It reads its Q&A data from `./aiKnowledgeBase.yaml` (co-located).
 - It is imported and called by the API route at `src/app/api/chat/route.ts`.
 - It provides the `ExtractedFacets` type, which is used by `src/core/state/ConfiguratorContext.tsx`.
-
 IMPORTS:
 - genkit (core client)
 - googleAI (Gemini plugin)
@@ -28,8 +27,8 @@ import { z } from 'zod';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// --- MODIFIED (Step 1.1.1) ---
-// Added 'knowledgeBaseAnswer' to the interface
+// --- UPDATED (Phase 3.1.1) ---
+// Added 'talkToHuman' field to the interface
 export interface ExtractedFacets {
   categoria: string | null;
   sistema: string | null;
@@ -38,11 +37,16 @@ export interface ExtractedFacets {
   material: string | null;
   folhasNumber: string | null;
   knowledgeBaseAnswer: string | null;
+  userName: string | null;
+  userEmail: string | null;
+  userPhone: string | null;
+  // --- NEW ---
+  talkToHuman: boolean | null;
 }
 
-// --- MODIFIED (Step 1.1.2) ---
+// --- UPDATED (Phase 3.1.1) ---
 // The Zod schema Genkit uses to force Gemini's JSON output structure.
-// Added 'knowledgeBaseAnswer' to the schema.
+// Added 'talkToHuman' field to the schema.
 const extractionSchema = z.object({
   categoria: z
     .string()
@@ -78,6 +82,31 @@ const extractionSchema = z.object({
     .describe(
       'Se o usuário fez uma pergunta (sobre garantia, entrega, etc.), responda aqui. Use APENAS a Base de Conhecimento. Se não houver pergunta, use "null".'
     ),
+  userName: z
+    .string()
+    .nullable()
+    .describe(
+      "O nome próprio do usuário (ex: 'Meu nome é João', 'Sou a Maria')."
+    ),
+  userEmail: z
+    .string()
+    .nullable()
+    .describe(
+      "O email do usuário (ex: 'meu email é teste@gmail.com')."
+    ),
+  userPhone: z
+    .string()
+    .nullable()
+    .describe(
+      "O telefone ou WhatsApp do usuário (ex: 'meu whats é 11 99999-8888')."
+    ),
+  // --- NEW (Phase 3.1.1) ---
+  talkToHuman: z
+    .boolean()
+    .nullable()
+    .describe(
+      "Defina como 'true' se o usuário pedir para falar com um 'humano', 'atendente', 'especialista' ou 'vendedor'. Caso contrário, 'null'."
+    ),
 });
 
 /* --sectionComment
@@ -87,7 +116,7 @@ console.group('[genkit]');
 console.time('[genkit] init');
 export const ai = genkit({
   plugins: [googleAI()],
-  model: 'googleai/gemini-2.5-flash',
+  model: 'googleai/gemini-2.5-flash-lite',
 });
 console.timeEnd('[genkit] init');
 console.log('[genkit] ✅ Initialized Gemini 2.5-flash');
@@ -120,11 +149,10 @@ export async function extractAttributesFromText(
   const LOG_SCOPE = '[genkit→extractAttributesFromText]';
   console.group(`${LOG_SCOPE} call`);
 
-  // --- MODIFIED (Step 1.1.3 & 1.1.4) ---
-  // The system prompt is now a template literal that injects the
-  // knowledgeBase variable and includes rules for the dual-task (Q&A + Facets).
+  // --- UPDATED (Bug Fix) ---
+  // The system prompt now includes stricter rules for TAREFA 2 and 4
   const systemInstruction = `
-Você é um assistente co-piloto com duas tarefas.
+Você é um assistente co-piloto com quatro tarefas.
 Responda APENAS com um objeto JSON.
 
 TAREFA 1: EXTRAÇÃO DE FACETAS
@@ -138,13 +166,23 @@ TAREFA 2: PERGUNTAS E RESPOSTAS (Q&A)
 - Coloque a resposta no campo "knowledgeBaseAnswer".
 - Se o usuário NÃO fizer uma pergunta factual, retorne 'null' para o campo "knowledgeBaseAnswer".
 
+TAREFA 3: EXTRAÇÃO DE CONTATO
+- Analise a mensagem do usuário em busca de informações de contato (nome, email, telefone/whatsapp).
+- Extraia-os para os campos "userName", "userEmail", e "userPhone".
+- Se não for mencionado, use 'null'.
+
+TAREFA 4: INTENÇÃO DE TRANSFERÊNCIA
+- Analise a mensagem do usuário em busca de um pedido claro para falar com um 'humano', 'atendente', 'especialista' ou 'vendedor'.
+- Se essa intenção for detectada, defina "talkToHuman" como 'true'.
+- Caso contrário, defina como 'null'.
+
 ---
 BASE DE CONHECIMENTO (Use APENAS estes dados para responder):
 ${knowledgeBase}
 ---
 
 REGRAS DE SAÍDA:
-1. Sempre retorne um objeto JSON com estas exatas 7 chaves:
+1. Sempre retorne um objeto JSON com estas exatas 11 chaves:
    "categoria"
    "sistema"
    "persiana"
@@ -152,8 +190,18 @@ REGRAS DE SAÍDA:
    "material"
    "folhasNumber"
    "knowledgeBaseAnswer"
+   "userName"
+   "userEmail"
+   "userPhone"
+   "talkToHuman"
 
 2.  Preencha todas as chaves, usando 'null' para qualquer uma que não for encontrada.
+
+3.  --- REGRA DE BUG FIX ---
+    SE a TAREFA 4 ("talkToHuman") for 'true',
+    ENTÃO a TAREFA 2 ("knowledgeBaseAnswer") DEVE SER 'null'.
+    Não responda à pergunta e nem confirme o pedido de falar com humano.
+    O cliente (software) tratará da resposta.
 
 ---
 OPÇÕES VÁLIDAS PARA EXTRAÇÃO (TAREFA 1):
@@ -181,7 +229,7 @@ OPÇÕES VÁLIDAS PARA EXTRAÇÃO (TAREFA 1):
   - "1" (se o usuário disser '1 folha', 'uma folha')
   - "2" (se o usuário disser '2 folhas', 'duas folhas')
   - "3" (se o usuário disser '3 folhas', 'três folhas')
-  - "4" (se o usuário disser '4 folhas', 'quatro folhas') 
+  - "44" (se o usuário disser '4 folhas', 'quatro folhas') 
   - "6" (se o usuário disser '6 folhas', 'seis folhas')
 `;
 
@@ -207,15 +255,15 @@ OPÇÕES VÁLIDAS PARA EXTRAÇÃO (TAREFA 1):
 
     console.log(`${LOG_SCOPE} ✅ Success, returning JSON:`, data);
     console.groupEnd();
-    return data;
+    return data as ExtractedFacets; // Cast to our interface
   } catch (err: any) {
     console.timeEnd(`${LOG_SCOPE} latency`);
     console.error(`${LOG_SCOPE} ❌ error:`, err?.message || err);
     console.groupEnd();
 
-    // --- MODIFIED ---
+    // --- UPDATED (Phase 3.1.1) ---
     // Return a "safe" fallback object in case of error,
-    // now including the new key.
+    // now including all 11 keys.
     return {
       categoria: null,
       sistema: null,
@@ -224,6 +272,10 @@ OPÇÕES VÁLIDAS PARA EXTRAÇÃO (TAREFA 1):
       material: null,
       folhasNumber: null,
       knowledgeBaseAnswer: null,
+      userName: null,
+      userEmail: null,
+      userPhone: null,
+      talkToHuman: false, // Default to false on error
     };
   }
 }

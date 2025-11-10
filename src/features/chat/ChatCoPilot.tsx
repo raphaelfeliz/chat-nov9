@@ -7,7 +7,9 @@ SUMMARY: This is the "chat logic folder." It connects to the core logic,
          manages all chat state (loading, message history), and orchestrates
          the "Answer-then-Question" sequence. It consumes the
          ConfiguratorContext, calls the AI API, and saves to persistence.
-         It passes all state down to its "dumb" UI children.
+         It passively saves contact info, actively prompts for it,
+         and handles the "talk to human" handover flow. This file contains
+         bug fixes for the handover flow logic.
 
 RELATES TO OTHER FILES:
 - It is the "smart" parent for this feature.
@@ -21,8 +23,11 @@ IMPORTS:
 - React hooks
 - Core Context: useConfiguratorContext
 - Core AI types: ExtractedFacets
-- Core Persistence: loadSession, saveMessage, createSession, ChatMessage, ChatSession
+- Core Persistence: loadSession, saveMessage, createSession, ChatMessage, ChatSession,
+  saveInitialSession, updateSessionContactInfo
 - UI Components: ChatDisplay, ChatInput
+- { generateWhatsAppLink } from '@/lib/utils'
+- { FACET_ORDER } from '@/core/engine/configuratorEngine'
 */
 
 'use client';
@@ -34,6 +39,9 @@ import {
   loadSession,
   saveMessage as saveMessageToFirestore,
   createSession,
+  // --- NEW (Phase 2.3.1) ---
+  saveInitialSession,
+  updateSessionContactInfo,
 } from '@/core/persistence/chatHistory';
 // --- FIX: Import types from the correct types.ts file ---
 import {
@@ -42,92 +50,111 @@ import {
 } from '@/core/persistence/types';
 import { useConfiguratorContext } from '@/core/state/ConfiguratorContext';
 import { type ExtractedFacets } from '@/core/ai/genkit';
-
+// --- NEW (Phase 1.1.1) ---
+import { generateWhatsAppLink } from '@/lib/utils';
 // --- REFACTOR: Import from new 'ui' paths ---
 import { ChatDisplay } from './ui/ChatDisplay';
 import { ChatInput } from './ui/ChatInput';
+// --- NEW (BUG FIX) ---
+// Import FACET_ORDER to iterate selectedOptions for the WA link
+import { FACET_ORDER } from '@/core/engine/configuratorEngine';
+
+
+// --- NEW (Debug Logging) ---
+// Set to false for production
+const DEBUG = true;
 
 export function ChatCoPilot() {
-  /* --sectionComment
-  SECTION: CONSTANTS
-  */
+  // --SECTION: LOGGING & CONSTANTS
   const sessionId = 'default-chat-session';
-  const LOG_SCOPE = '[ChatCoPilot → AI]';
 
-  /* --sectionComment
-  SECTION: STATE
-  */
+  // --- NEW (Debug Logging) ---
+  // Concise, human-friendly log helpers
+  const log = (message: string, ...args: any[]) => {
+    if (DEBUG) console.log(`[ChatCoPilot] ${message}`, ...args);
+  };
+  const logGroup = (message: string) => {
+    if (DEBUG) console.group(`[ChatCoPilot] ${message}`);
+  };
+  const logGroupEnd = () => {
+    if (DEBUG) console.groupEnd();
+  };
+
+  // --SECTION: STATE
   const [session, setSession] = useState<ChatSession | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [bootReady, setBootReady] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
+  
   // --- Get state and functions from our "Smarter Brain" Context ---
   const {
+    selectedOptions, // <-- NEW: Get all selections for WhatsApp link
     currentQuestion,
     finalProducts, // <-- We listen for this to stop posting questions
     applyExtractedFacets,
   } = useConfiguratorContext();
 
-  // Ref to prevent duplicate question-posting
+  // --SECTION: REFS
   const lastPostedQuestionRef = useRef<string | null>(null);
+  const activePromptFiredRef = useRef(false);
+  // --- UPDATED (Phase 3.3.5 Bug Fix) ---
+  // Use useRef instead of useState for synchronous state checking
+  const isHandoverActive = useRef(false);
 
-  /* --sectionComment
-  SECTION: BOOTSTRAP (Firestore-first)
-  */
+
+  // --SECTION: BOOTSTRAP (Firestore-first)
   useEffect(() => {
-    console.group('[ChatCoPilot] mount bootstrap');
+    logGroup('mount bootstrap');
     (async () => {
-      try {
-        console.log('sessionId =', sessionId);
-        const loaded = await loadSession(sessionId);
-        if (loaded) {
-          setSession(loaded);
-          setMessages(loaded.messages ?? []);
-          console.log(
-            `[ChatCoPilot] loaded ${
-              loaded.messages?.length ?? 0
-            } messages from Firestore/local cache`
-          );
-        } else {
-          const created = createSession();
-          created.sessionId = sessionId;
-          setSession(created);
-          setMessages([]);
-          console.log('[ChatCoPilot] created new session (empty)');
-        }
-      } catch (e) {
-        console.error('[ChatCoPilot] bootstrap error:', e);
-      } finally {
-        setBootReady(true);
-        console.groupEnd();
+      log('sessionId =', sessionId);
+      const loaded = await loadSession(sessionId);
+      if (loaded) {
+        setSession(loaded);
+        setMessages(loaded.messages ?? []);
+        log(`loaded ${loaded.messages?.length ?? 0} messages and session data.`);
+      } else {
+        // --- UPDATED (Phase 2.3.1) ---
+        // Create session in memory AND in Firestore
+        log('No session found. Creating new one...');
+        const created = createSession();
+        created.sessionId = sessionId; // Assign the static ID
+        await saveInitialSession(created); // Create the parent doc in DB
+        setSession(created); // Set to local state
+        setMessages([]);
+        log('created new session (empty).');
       }
-    })();
-  }, []);
+    })().catch(e => console.error('[ChatCoPilot] bootstrap error:', e))
+      .finally(() => {
+        setBootReady(true);
+        logGroupEnd();
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
 
-  /* --sectionComment
-  SECTION: Listen to ConfiguratorContext (Posts the "Question")
-  */
+  // --SECTION: LISTENERS (EFFECTS)
+
+  /**
+   * Listen to ConfiguratorContext (Posts the "Question")
+   */
   useEffect(() => {
-    // Do not post any new questions if the flow is finished
-    if (!bootReady || !currentQuestion || finalProducts) {
+    // --- UPDATED (Phase 3.3.5 Bug Fix) ---
+    // Do not post configurator questions if we are in a human handover
+    if (!bootReady || !currentQuestion || finalProducts || isHandoverActive.current) {
+      log('Question listener skipped (bootReady/currentQ/final/handover)');
       return;
     }
+    // --- END OF UPDATE ---
 
     const newQuestionText = currentQuestion.question;
     const lastMessage = messages[messages.length - 1];
 
-    // Prevent posting if the last message is already the question
-    // or if the last message is a loading bubble (wait for it to resolve)
     if (
       newQuestionText &&
       newQuestionText !== lastPostedQuestionRef.current &&
       newQuestionText !== lastMessage?.text &&
-      lastMessage?.variant !== 'loading' // <-- Don't post while loading
+      lastMessage?.variant !== 'loading'
     ) {
-      console.log(
-        `[ChatCoPilot] Context changed. Posting new question: ${newQuestionText}`
-      );
+      log(`Context changed. Posting new question: ${newQuestionText}`);
       const ts = Date.now();
       const appBubble: ChatMessage = {
         id: String(ts),
@@ -137,34 +164,64 @@ export function ChatCoPilot() {
         variant: 'incoming',
       };
 
-      // When posting the app's next question, we also clean up
-      // any 'loading' bubble that might still be around.
       setMessages((prev) => [
         ...prev.filter((m) => m.variant !== 'loading'),
         appBubble,
       ]);
-      lastPostedQuestionRef.current = newQuestionText; // Mark as posted
-
-      // Save the app's question to Firestore
+      lastPostedQuestionRef.current = newQuestionText;
       saveMessageToFirestore(sessionId, 'bot', newQuestionText);
     }
-    // Listen for changes to finalProducts to stop posting questions
-  }, [currentQuestion, finalProducts, messages, bootReady, sessionId]);
+  }, [currentQuestion, finalProducts, messages, bootReady, sessionId, log]);
 
-  /* --sectionComment
-  SECTION: SEND HANDLER (Orchestrates the "Answer-then-Question" flow)
-  */
+  /**
+   * --- NEW (Phase 2.3.1) ---
+   * Listen for Final Product to trigger "Active Contact Prompt"
+   */
+  useEffect(() => {
+    // --- UPDATED (Phase 3.3.5 Bug Fix) ---
+    if (!bootReady || !finalProducts || !session || activePromptFiredRef.current || isHandoverActive.current) {
+      return; // Not ready, or no product, or no session, or already fired
+    }
+
+    // If we have a product AND we don't know the user's name
+    if (finalProducts.length > 0 && !session.userName) {
+      log('Active Prompt: Final product found, user name is missing. Asking for name.');
+      const promptText = "Encontrei seu produto! Para salvar esta cotação, com quem eu falo?";
+      
+      saveMessageToFirestore(sessionId, 'bot', promptText);
+      
+      const ts = Date.now();
+      const appBubble: ChatMessage = {
+        id: String(ts),
+        sender: 'assistant',
+        text: promptText,
+        timestamp: ts,
+        variant: 'incoming',
+      };
+      setMessages((prev) => [...prev, appBubble]);
+      
+      activePromptFiredRef.current = true; // Mark as fired
+      lastPostedQuestionRef.current = promptText;
+    }
+  }, [finalProducts, session, bootReady, log]); // Added isHandoverActive.current
+
+
+  // --SECTION: SEND HANDLER
   const handleSendMessage = async (text: string) => {
-    console.group('[ChatCoPilot] handleSendMessage');
-    console.time(`${LOG_SCOPE} total`);
+    logGroup('handleSendMessage');
+    const startTime = Date.now();
     setIsLoading(true);
 
     const trimmed = text?.trim();
-    if (!trimmed || !bootReady) {
-      console.warn(`${LOG_SCOPE} ignored empty message or boot not ready`);
+    if (!bootReady || !session) {
+      log('ignored empty message or boot not ready');
       setIsLoading(false);
+      logGroupEnd();
       return;
     }
+
+    log(`User sent: "${trimmed}"`);
+    const lastAppMessage = messages[messages.length - 1]; // Get this *before* adding new bubbles
 
     const userTs = Date.now();
     const optimistic: ChatMessage = {
@@ -175,16 +232,17 @@ export function ChatCoPilot() {
       variant: 'outgoing',
     };
 
-    const loadingTs = userTs + 1; // Ensure unique ID
+    const loadingTs = userTs + 1;
     const loadingBubble: ChatMessage = {
       id: String(loadingTs),
       sender: 'assistant',
-      text: '...', // Placeholder for loader
+      text: '...',
       timestamp: loadingTs,
       variant: 'loading',
     };
 
-    // 1) Optimistic UI append (Add user bubble + loading bubble)
+    // 1) Optimistic UI append
+    log('Displaying optimistic user message and loading bubble.');
     setMessages((prev) => [...prev, optimistic, loadingBubble]);
 
     // 2) Firestore mirror (Run in background)
@@ -192,52 +250,205 @@ export function ChatCoPilot() {
 
     try {
       // 3) AI Request
-      console.group(`${LOG_SCOPE} send to /api/chat`);
-      console.time(`${LOG_SCOPE} fetch latency`);
+      logGroup('AI Request');
+      log('Sending to /api/chat...');
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userInput: trimmed,
-        }),
+        body: JSON.stringify({ userInput: trimmed }),
       });
+      log(`Fetch latency: ${Date.now() - startTime}ms`);
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       // 4) Receive AI "Form"
       const aiJson: ExtractedFacets = await response.json();
-      console.timeEnd(`${LOG_SCOPE} fetch latency`);
-      console.log(`${LOG_SCOPE} ← AI response (JSON Form):`, aiJson);
+      log('← AI response received.');
+      if (DEBUG) console.log('JSON Form:', aiJson); // Use console.log for object
+      logGroupEnd();
+      
+      const ts = Date.now();
+      const bubblesToPost: ChatMessage[] = [];
+      let didFollowUp = false; // Prevents configurator from running
+      let localSession = { ...session }; // Create a mutable copy of session
 
-      // 5) Post the KB Answer (if one exists)
-      const kbAnswer = aiJson.knowledgeBaseAnswer;
-      if (kbAnswer && kbAnswer.trim() !== '' && kbAnswer.trim() !== 'null') {
-        console.log(`${LOG_SCOPE} Posting KB answer bubble.`);
-        const answerTs = Date.now();
-        const answerBubble: ChatMessage = {
-          id: String(answerTs),
-          sender: 'assistant',
-          text: kbAnswer,
-          timestamp: answerTs,
-          variant: 'incoming',
-        };
+      // --- UPDATED (Bug Fix) ---
+      // 5) Passive Contact Save (RUNS FIRST)
+      const contactData: { userName?: string; userEmail?: string; userPhone?: string } = {};
+      if (aiJson.userName && aiJson.userName !== 'null') contactData.userName = aiJson.userName;
+      if (aiJson.userEmail && aiJson.userEmail !== 'null') contactData.userEmail = aiJson.userEmail;
+      if (aiJson.userPhone && aiJson.userPhone !== 'null') contactData.userPhone = aiJson.userPhone;
 
-        // Atomically remove loading, add answer
-        setMessages((prev) => [
-          ...prev.filter((m) => m.variant !== 'loading'),
-          answerBubble,
-        ]);
-
-        // Save the answer bubble to Firestore
-        saveMessageToFirestore(sessionId, 'bot', kbAnswer);
+      const hasNewContactInfo = Object.keys(contactData).length > 0;
+      
+      if (hasNewContactInfo) {
+        log('Passively saving contact info:', contactData);
+        await updateSessionContactInfo(sessionId, contactData);
+        // Update local session immediately
+        localSession = { ...localSession, ...contactData };
+        setSession(localSession); // Update React state
       }
 
-      // 6) Apply AI Form to Context (This triggers the "Question" part)
-      applyExtractedFacets(aiJson);
+      // 6) Acknowledgment Rule
+      if (hasNewContactInfo) {
+        const currentName = contactData.userName || (localSession.userName && localSession.userName !== 'null' ? localSession.userName : null);
+        const ackText = currentName ? `Grato, ${currentName}!` : "Grato, recebi seus dados!";
+        log(`Adding Acknowledgment bubble: "${ackText}"`);
+        bubblesToPost.push({
+          id: `ack-${ts}`,
+          sender: 'assistant',
+          text: ackText,
+          timestamp: ts,
+          variant: 'incoming',
+        });
+      }
 
-      console.log(`${LOG_SCOPE} completed successfully`);
-    } catch (err) {
-      console.error(`${LOG_SCOPE} ❌ error during send:`, err);
+      // --- UPDATED (Bug Fix) ---
+      // 7) Deterministic Handover (RUNS AFTER CONTACT SAVE)
+      if (aiJson.talkToHuman) {
+        log('AI detected "talkToHuman" intent.');
+        didFollowUp = true; // Stop configurator
+        isHandoverActive.current = true; // Set the gate
+
+        // Check if we *already* have contact info (from this or previous messages)
+        if (localSession.userPhone || localSession.userEmail) {
+          log('User has info, posting WA link directly.');
+          const whatsAppLink = generateWhatsAppLink({
+            userName: localSession.userName,
+            facets: FACET_ORDER.map(f => selectedOptions[f]).filter(Boolean) as string[],
+          });
+          bubblesToPost.push({
+            id: `wa-link-${ts + 1}`,
+            sender: 'assistant',
+            text: whatsAppLink,
+            timestamp: ts + 1,
+            variant: 'whatsapp-link',
+          });
+          isHandoverActive.current = false; // Handover is complete
+        } else {
+          // We need info, so ask the question
+          log('User has no info. Posting handover question.');
+          const handoverText = "Claro, posso te passar para o especialista. Qual seu whatsapp? Ou prefere por email?";
+          bubblesToPost.push({
+            id: `handover-${ts + 1}`,
+            sender: 'assistant',
+            text: handoverText,
+            timestamp: ts + 1,
+            variant: 'incoming',
+          });
+        }
+      } 
+      // --- BUG FIX (Logic Failure) ---
+      // This logic now runs *regardless* of what's in 'knowledgeBaseAnswer'.
+      // If the handover is active, we *only* care about contact info
+      // to post the WA link.
+      else if (isHandoverActive.current) {
+        didFollowUp = true; // This is a "follow up"
+        
+        if (hasNewContactInfo) {
+          log('Handover complete (reply). Posting WA Link.');
+          isHandoverActive.current = false; // End the handover mode
+          activePromptFiredRef.current = true; // Prevent "com quem eu falo" from firing
+          
+          const whatsAppLink = generateWhatsAppLink({
+            userName: localSession.userName,
+            facets: FACET_ORDER.map(f => selectedOptions[f]).filter(Boolean) as string[],
+          });
+
+          bubblesToPost.push({
+            id: `wa-link-${ts + 1}`,
+            sender: 'assistant',
+            text: whatsAppLink,
+            timestamp: ts + 1,
+            variant: 'whatsapp-link',
+          });
+          
+        } else {
+          log('Handover replied with no contact info.');
+          bubblesToPost.push({
+            id: `handover-fail-${ts + 1}`,
+            sender: 'assistant',
+            text: "Entendido. Se mudar de ideia, é só pedir para falar com um especialista.",
+            timestamp: ts + 1,
+            variant: 'incoming',
+          });
+          isHandoverActive.current = false; // End the handover mode anyway
+        }
+      }
+      
+      // 9) Standard Configurator Follow-ups
+      else if (!isHandoverActive.current && lastAppMessage && !aiJson.knowledgeBaseAnswer) {
+        if (lastAppMessage.text.includes('com quem eu falo?') && (aiJson.userName && aiJson.userName !== 'null')) {
+          bubblesToPost.push({
+            id: `followup-${ts + 1}`,
+            sender: 'assistant',
+            text: "Obrigado! Qual o seu melhor email?",
+            timestamp: ts + 1,
+            variant: 'incoming',
+          });
+          didFollowUp = true;
+        } else if (lastAppMessage.text.includes('qual o seu melhor email?') && (aiJson.userEmail && aiJson.userEmail !== 'null')) {
+          bubblesToPost.push({
+            id: `followup-${ts + 1}`,
+            sender: 'assistant',
+            text: "Perfeito. E para finalizar, qual seu WhatsApp/telefone?",
+            timestamp: ts + 1,
+            variant: 'incoming',
+          });
+          didFollowUp = true;
+        } else if (lastAppMessage.text.includes('qual seu WhatsApp/telefone?') && (aiJson.userPhone && aiJson.userPhone !== 'null')) {
+          bubblesToPost.push({
+            id: `followup-${ts + 1}`,
+            sender: 'assistant',
+            text: "Tudo certo! Recebi seus dados. 👍",
+            timestamp: ts + 1,
+            variant: 'incoming',
+          });
+          didFollowUp = true;
+        }
+      }
+
+      // 10) KB Answer (if no other main reply was set)
+      const kbAnswer = aiJson.knowledgeBaseAnswer;
+      if (!didFollowUp && !isHandoverActive.current && (kbAnswer && kbAnswer.trim() !== '' && kbAnswer.trim() !== 'null')) {
+        log(`Adding KB answer bubble: "${kbAnswer}"`);
+        bubblesToPost.push({
+          id: `kb-${ts + 1}`,
+          sender: 'assistant',
+          text: kbAnswer,
+          timestamp: ts + 1,
+          variant: 'incoming',
+        });
+      }
+      
+      // 11) Post Bubbles & Fix Hanging Loader
+      if (bubblesToPost.length > 0) {
+        log(`Posting ${bubblesToPost.length} bot replies...`);
+        setMessages((prev) => [
+          ...prev.filter((m) => m.variant !== 'loading'),
+          ...bubblesToPost,
+        ]);
+        // Save all new bubbles to Firestore
+        for (const bubble of bubblesToPost) {
+          saveMessageToFirestore(sessionId, 'bot', bubble.text);
+        }
+        lastPostedQuestionRef.current = bubblesToPost[bubblesToPost.length - 1].text;
+      } else {
+        log('No bot replies. Removing loading bubble.');
+        setMessages((prev) => prev.filter((m) => m.variant !== 'loading'));
+      }
+      
+      // 12) Apply AI Form to Context
+      if (!didFollowUp && !isHandoverActive.current) {
+        log('Applying facets to ConfiguratorContext.');
+        applyExtractedFacets(aiJson);
+      } else {
+        log('Skipping facet apply due to follow-up or handover.');
+      }
+
+      log('handleSendMessage completed successfully');
+    } catch (err: any) {
+      log('❌ error during send:', err);
       const fallback: ChatMessage = {
         id: `err-${Date.now()}`,
         sender: 'assistant',
@@ -245,29 +456,22 @@ export function ChatCoPilot() {
         timestamp: Date.now(),
         variant: 'incoming',
       };
-
-      // Atomically remove loading, add error
       setMessages((prev) => [
         ...prev.filter((m) => m.variant !== 'loading'),
         fallback,
       ]);
     } finally {
       setIsLoading(false);
-      console.timeEnd(`${LOG_SCOPE} total`);
-      console.groupEnd();
-      console.groupEnd();
+      log(`total: ${Date.now() - startTime}ms`);
+      logGroupEnd();
+      logGroupEnd();
     }
   };
 
-  /* --sectionComment
-  SECTION: RENDER (Using "Dumb" UI Components)
-  */
+  // --SECTION: RENDER
   return (
     <div className="bg-[#0d1a26] flex flex-col h-[80vh] text-white">
-      {/* Pass messages state to the "dumb" display component */}
       <ChatDisplay messages={messages ?? []} />
-
-      {/* Pass send handler and loading state to "dumb" input component */}
       <ChatInput onSendMessage={handleSendMessage} isLoading={isLoading} />
     </div>
   );

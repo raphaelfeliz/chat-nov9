@@ -17,7 +17,7 @@ RELATES TO OTHER FILES:
 
 IMPORTS:
 - React hooks
-- calculateNextUiState, FACET_ORDER, etc. from '@/core/engine/configuratorEngine'
+- calculateNextUiState, FACET_ORDER, formatFacetLabelForDisplay, etc. from '@/core/engine/configuratorEngine'
 - ExtractedFacets from '@/core/ai/genkit'
 */
 
@@ -28,7 +28,9 @@ import { createContext, useContext, useState, useCallback, ReactNode, useEffect 
 import {
     calculateNextUiState,
     FACET_ORDER,
-    FACET_DEFINITIONS,
+    // --- FIX (Phase 1.0.2) ---
+    // Use the correct, renamed function from the engine
+    formatFacetLabelForDisplay,
     type QuestionState,
     type Option,
     type Product,
@@ -37,7 +39,7 @@ import {
 // --- REFACTOR: Updated import path to new 'core' structure ---
 import { type ExtractedFacets } from '@/core/ai/genkit';
 
-// --- New Type for the Master List ---
+// --SECTION: TYPE DEFINITIONS
 type SelectedOptions = Record<FacetAttribute, string | null>;
 
 // --- Helper to initialize the state ---
@@ -64,6 +66,7 @@ interface ConfiguratorContextType {
     reset: () => void;
 }
 
+// --SECTION: CONTEXT CREATION
 // Create the context with a default value
 const ConfiguratorContext = createContext<ConfiguratorContextType | undefined>(undefined);
 
@@ -76,6 +79,7 @@ export function useConfiguratorContext() {
     return context;
 }
 
+// --SECTION: PROVIDER COMPONENT
 // Create the provider component
 export function ConfiguratorProvider({ children }: { children: ReactNode }) {
     
@@ -98,22 +102,24 @@ export function ConfiguratorProvider({ children }: { children: ReactNode }) {
         setCurrentQuestion(result.currentQuestion);
         setFinalProducts(result.finalProducts);
 
-        // 3. Update the full product name based on current selections
+        // --- UPDATED (Phase 1.0.2) ---
+        // 3. Update the full product name using the new central formatter
         const nameParts: string[] = [];
         FACET_ORDER.forEach(attribute => {
             const value = selections[attribute];
             if (value) {
-                if (attribute === 'persiana' && value === 'nao') {
-                    // Do nothing, don't add "Não" to the name
-                } else if (attribute === 'persiana' && value === 'sim') {
-                    nameParts.push('Persiana'); // Custom "Persiana" label
-                } else { // <--- This is the corrected line 110
-                    const label = FACET_DEFINITIONS[attribute]?.labelMap[value] || value;
+                // --- FIX (Phase 1.0.2) ---
+                // Call the correct, renamed function
+                const label = formatFacetLabelForDisplay(attribute, value);
+                
+                // If the formatter returns a valid label (not null), add it
+                if (label) {
                     nameParts.push(label);
                 }
             }
         });
         setFullProductName(nameParts.join(' '));
+        // --- END OF UPDATE ---
 
         console.timeEnd('[Context] runLogicAndSetState');
         console.groupEnd();

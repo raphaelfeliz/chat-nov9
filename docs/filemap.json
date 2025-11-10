@@ -239,7 +239,8 @@
       "purpose": "The new \"Smarter Brain\" for the Configurator. Contains all auto-skip and filtering logic.",
       "summary": "Defines the question order/labels and exports the main function, `calculateNextUiState`. This function filters the imported PRODUCT_CATALOG based on user selections and applies the (0, 1, 1) rules.",
       "relations": "- This is the \"Smarter Brain\" logic. - It imports its data from `src/core/engine/productDatabase.ts`. - It is imported and used by `src/core/state/ConfiguratorContext.tsx`.",
-      "imports": "- ProductType, PRODUCT_CATALOG from '@/core/engine/productDatabase'"
+      "imports": "- ProductType, PRODUCT_CATALOG from '@/core/engine/productDatabase'",
+      "exports": "- Product (type) - Option (type) - FacetAttribute (type) - QuestionState (type) - EngineResult (type) - FACET_ORDER (const) - FACET_DEFINITIONS (const) - calculateNextUiState (function) - formatFacetLabelForDisplay (function)"
     },
     {
       "path": "src/core/engine/productDatabase.ts",
@@ -253,7 +254,7 @@
       "path": "src/core/persistence/chatHistory.ts",
       "tags": [],
       "purpose": "To centralize all database read/write interactions for chat history.",
-      "summary": "This file abstracts all Firestore logic for the chat feature. It provides a function to load an entire session (read) and a function to save a single message (write). It imports the initialized `db` instance and the shared data types.",
+      "summary": "This file abstracts all Firestore logic for the chat feature. It now provides functions to load/save the parent session (including contact info) and the messages subcollection.",
       "relations": "- Imports the `db` instance from `./firebase.ts`. - Imports types from `./types.ts`. - This file is imported by `src/features/chat/ChatCoPilot.tsx` to load and save its messages.",
       "imports": "- db from './firebase' - ChatMessage, ChatSession from './types' - firebase/firestore functions"
     },
@@ -269,7 +270,7 @@
       "path": "src/core/persistence/types.ts",
       "tags": [],
       "purpose": "To define and export all shared data types for chat persistence.",
-      "summary": "This file acts as the single source of truth for persistence-related data structures. It ensures that the chat feature and the persistence layer (chatHistory.ts) use the exact same object shapes.",
+      "summary": "This file acts as the single source of truth for persistence-related data structures. It defines the `ChatMessage` type for individual messages and the `ChatSession` type for the parent document, which now includes fields for storing user contact info.",
       "relations": "- This file is imported by `src/core/persistence/chatHistory.ts`. - It is also imported by `src/features/chat/ChatCoPilot.tsx` to type its local message state.",
       "imports": "- None"
     },
@@ -279,23 +280,15 @@
       "purpose": "Centralize and expose configurator state using the new Smart Engine.",
       "summary": "Manages the `selectedOptions` Master List (the single source of truth) and calls `calculateNextUiState` whenever selections change. Provides public functions for manual clicks (`setAttribute`) and AI batch updates (`applyExtractedFacets`).",
       "relations": "- This is the \"State Manager,\" the heart of the app's interactivity. - It imports its logic from `src/core/engine/configuratorEngine.ts`. - It imports the AI's output type from `src/core/ai/genkit.ts`. - It is imported by `src/app/layout.tsx` (to wrap the app). - Its hook (`useConfiguratorContext`) is consumed by all \"smart\" features (`Configurator.tsx`, `ChatCoPilot.tsx`, `AppHeader.tsx`).",
-      "imports": "- React hooks - calculateNextUiState, FACET_ORDER, etc. from '@/core/engine/configuratorEngine' - ExtractedFacets from '@/core/ai/genkit'"
-    },
-    {
-      "path": "src/features/chat/ChatCoPilot.tsx",
-      "tags": [],
-      "purpose": "The \"smart\" controller for the AI Chat feature (Pillar 2).",
-      "summary": "This is the \"chat logic folder.\" It connects to the core logic, manages all chat state (loading, message history), and orchestrates the \"Answer-then-Question\" sequence. It consumes the ConfiguratorContext, calls the AI API, and saves to persistence. It passes all state down to its \"dumb\" UI children.",
-      "relations": "- It is the \"smart\" parent for this feature. - It is imported by `src/app/page.tsx`. - Consumes `useConfiguratorContext` from `src/core/state/ConfiguratorContext.tsx`. - Imports persistence functions from `src/core/persistence/chatHistory.ts`. - Imports types from `src/core/persistence/types.ts` and `src/core/ai/genkit.ts`. - Renders its \"dumb\" children: `./ui/ChatDisplay.tsx` and `./ui/ChatInput.tsx`.",
-      "imports": "- React hooks - Core Context: useConfiguratorContext - Core AI types: ExtractedFacets - Core Persistence: loadSession, saveMessage, createSession, ChatMessage, ChatSession - UI Components: ChatDisplay, ChatInput"
+      "imports": "- React hooks - calculateNextUiState, FACET_ORDER, formatFacetLabelForDisplay, etc. from '@/core/engine/configuratorEngine' - ExtractedFacets from '@/core/ai/genkit'"
     },
     {
       "path": "src/features/chat/ui/ChatBubble.tsx",
       "tags": [],
       "purpose": "A \"dumb\" visual component to render a single chat message bubble.",
-      "summary": "This component receives the message text and a `variant` ('incoming', 'outgoing', 'loading'). It applies different styles based on the variant. If the variant is 'loading', it renders the `ChatLoader` component instead of text.",
+      "summary": "This component receives a full `ChatMessage` object. It renders a styled bubble based on the `message.variant`: - 'incoming': Standard bot reply. - 'outgoing': Standard user reply. - 'loading': Renders the `ChatLoader`. - 'whatsapp-link': Renders a clickable \"Iniciar Conversa\" button.",
       "relations": "- This is a \"dumb\" UI component. - It is imported and rendered by `src/features/chat/ui/ChatDisplay.tsx`. - It imports its child component, `src/features/chat/ui/ChatLoader.tsx`.",
-      "imports": "- React - ChatLoader from './ChatLoader'"
+      "imports": "- React - ChatLoader from './ChatLoader' - ChatMessage from '@/core/persistence/types' - MessageCircle from 'lucide-react'"
     },
     {
       "path": "src/features/chat/ui/ChatDisplay.tsx",
@@ -349,9 +342,9 @@
       "path": "src/features/configurator/ui/ResultCard.tsx",
       "tags": [],
       "purpose": "A \"dumb\" visual component to display the final selected product.",
-      "summary": "This component receives a `product` object via props (containing label, picture, and url). It renders a large card with the product image, its full name, and a \"Ver Preço\" (See Price) button that links to the final product URL.",
-      "relations": "- This is a \"dumb\" UI component. - It is imported and rendered by the \"smart\" `src/features/configurator/Configurator.tsx`. - It imports primitives from `src/components/ui/card.tsx` and `src/components/ui/button.tsx`.",
-      "imports": "- Image from 'next/image' - { Card, CardContent } from '@/components/ui/card' - { Button } from '@/components/ui/button'"
+      "summary": "This component receives a `product` object via props (containing label, picture, and url). It renders a large card with the product image, its full name, a \"Ver Preço\" button, and a new \"Chat on WhatsApp\" button.",
+      "relations": "- This is a \"dumb\" UI component. - It is imported and rendered by the \"smart\" `src/features/configurator/Configurator.tsx`. - It imports primitives from `src/components/ui/card.tsx` and `src/components/ui/button.tsx`. - It imports `generateWhatsAppLink` from `src/lib/utils.ts`.",
+      "imports": "- Image from 'next/image' - { Card, CardContent } from '@/components/ui/card' - { Button } from '@/components/ui/button' - { generateWhatsAppLink } from '@/lib/utils' - { MessageCircle } from 'lucide-react'"
     },
     {
       "path": "src/features/header/AppHeader.tsx",
@@ -389,10 +382,11 @@
     {
       "path": "src/lib/utils.ts",
       "tags": [],
-      "purpose": "Provides common, low-level utility functions, primarily for styling.",
-      "summary": "This file's main export is the `cn()` function. This helper utility (from `tailwind-merge` and `clsx`) intelligently merges multiple Tailwind CSS class strings, resolving conflicts and making conditional styling much cleaner.",
-      "relations": "- This is a foundational utility. - It is imported by all UI primitives in `src/components/ui/` (e.g., button.tsx, card.tsx, toast.tsx).",
-      "imports": "- type ClassValue, clsx from 'clsx' - twMerge from 'tailwind-merge'"
+      "purpose": "Provides common, low-level utility functions for styling and business logic.",
+      "summary": "This file exports the `cn()` function for merging Tailwind classes and the `generateWhatsAppLink()` function for creating context-aware WhatsApp message URLs.",
+      "relations": "- `cn` is imported by all UI primitives in `src/components/ui/`. - `generateWhatsAppLink` is imported by `ResultCard.tsx` and `ChatCoPilot.tsx`.",
+      "imports": "- type ClassValue, clsx from 'clsx' - twMerge from 'tailwind-merge'",
+      "exports": "- cn (function) - generateWhatsAppLink (function)"
     }
   ]
 }

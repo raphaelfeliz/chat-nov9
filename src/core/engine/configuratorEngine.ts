@@ -1,20 +1,26 @@
 /* *file-summary*
 PATH: src/core/engine/configuratorEngine.ts
-
 PURPOSE: The new "Smarter Brain" for the Configurator. Contains all auto-skip
          and filtering logic.
-
 SUMMARY: Defines the question order/labels and exports the main function,
          `calculateNextUiState`. This function filters the imported
          PRODUCT_CATALOG based on user selections and applies the (0, 1, 1) rules.
-
 RELATES TO OTHER FILES:
 - This is the "Smarter Brain" logic.
 - It imports its data from `src/core/engine/productDatabase.ts`.
 - It is imported and used by `src/core/state/ConfiguratorContext.tsx`.
-
 IMPORTS:
 - ProductType, PRODUCT_CATALOG from '@/core/engine/productDatabase'
+EXPORTS:
+- Product (type)
+- Option (type)
+- FacetAttribute (type)
+- QuestionState (type)
+- EngineResult (type)
+- FACET_ORDER (const)
+- FACET_DEFINITIONS (const)
+- calculateNextUiState (function)
+- formatFacetLabelForDisplay (function)
 */
 
 // --- REFACTOR: Updated import path to new 'core' structure ---
@@ -29,7 +35,7 @@ export type Product = ProductType;
 // --- Core Types for Data Consistency ---
 
 export type Option = {
-    label: string;
+    label: string; // <-- FIX: Reverted to string, not string | null
     value: string;
     picture: string; // The image URL or path
 };
@@ -98,13 +104,54 @@ export const FACET_DEFINITIONS: Record<FacetAttribute, { title: string; labelMap
     'folhasNumber': {
         title: "Para este tamanho, qual o número de folhas?",
         labelMap: {},
-        labelFromValue: "{{$}} Folha(s)" // Placeholder for numerical formatting
+        labelFromValue: "{{$}} folha(s)" // Placeholder for numerical formatting
     }
 };
 
 /* --sectionComment
+SECTION: LABEL FORMATTING UTILITY (Phase 1.0.1)
+*/
+
+/**
+ * Formats a raw facet value into a user-friendly *display name*
+ * (e.g., for the final product name or WhatsApp link).
+ * This function is *not* for UI option labels.
+ * @param attribute The facet attribute (e.g., 'persiana')
+ * @param value The raw value (e.g., 'sim')
+ * @returns The formatted label (e.g., 'Persiana') or null to hide it
+ */
+export function formatFacetLabelForDisplay(attribute: FacetAttribute, value: string): string | null {
+    // 1. Handle special formatting for specific attributes
+    switch (attribute) {
+        case 'largura':
+            return value.replace('-', 'm a ') + 'm';
+        case 'folhasNumber':
+            return `${value} folha(s)`;
+        
+        // --- FIX: This is the special logic for the *final name* ---
+        case 'persiana':
+            if (value === 'nao') {
+                return null; // Don't show "Não" in the final name
+            }
+            if (value === 'sim') {
+                return 'Persiana'; // Use "Persiana" instead of "Sim"
+            }
+            break; 
+    }
+
+    // 2. Handle all other attributes using the labelMap
+    const definition = FACET_DEFINITIONS[attribute];
+    if (definition && definition.labelMap) {
+        return definition.labelMap[value] || value;
+    }
+
+    // 3. Fallback to the raw value
+    return value;
+}
+
+
+/* --sectionComment
 SECTION: CORE ENGINE LOGIC
-SUMMARY: Main function to filter products and apply auto-skip logic.
 */
 
 // Helper to filter the catalog based on current selections
@@ -198,7 +245,7 @@ export function calculateNextUiState(
             const breakpoints = [...new Set(products.flatMap(p => [Number(p.minLargura), Number(p.maxLargura)]))].sort((a, b) => a - b);
             for (let i = 0; i < breakpoints.length - 1; i++) {
                 const min = breakpoints[i];
-                const max = breakpoints[i + 1]; // <-- Corrected line 201
+                const max = breakpoints[i + 1];
                 if (min < max) {
                     // Check if any product *exists* within this range
                     const hasProductsInRange = products.some(p => Number(p.minLargura) < max && min < Number(p.maxLargura));
@@ -260,21 +307,24 @@ export function calculateNextUiState(
                 return p[attribute]?.toString() === value;
             });
             
+            // --- FIX: Reverted to the original, simple label logic ---
+            // This logic is for the UI buttons ("Sim", "Não", "0.7m a 1m", etc.)
             let label = definition.labelMap[value] || value;
             if (definition.labelFromValue) {
                 if (attribute === 'largura') {
                     label = value.replace('-', 'm a ') + 'm';
                 } else if (attribute === 'folhasNumber') {
-                    label = `${value} Folha(s)`;
+                    label = `${value} folha(s)`;
                 }
             }
+            // --- END OF FIX ---
 
             return {
                 label: label,
                 value: value,
                 picture: matchingProduct?.image || '/assets/placeholder.webp',
             };
-        });
+        }); // <-- FIX: Removed the .filter() that was breaking the options
 
         return {
             currentQuestion: {

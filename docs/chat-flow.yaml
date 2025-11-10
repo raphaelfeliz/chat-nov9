@@ -1,0 +1,87 @@
+chatFlow:
+  # ------------------------------------------------------------------
+  # PHASE 1: User sends a message from the client.
+  # ------------------------------------------------------------------
+  - phase: UserInput
+    component: ChatInput.tsx
+    action: "User types a message (e.g., 'quero uma janela') and presses send."
+    orchestrator: ChatCoPilot.tsx
+    steps:
+      - optimisticUI: "Appends two bubbles to the local state: one 'outgoing' (user) and one 'loading'."
+      - persistence: "Asynchronously calls `saveMessageToFirestore` to save the user's message."
+      - apiCall: "Sends a POST fetch request to the '/api/chat' endpoint with the user's text."
+
+  # ------------------------------------------------------------------
+  # PHASE 2: The server's AI engine processes the message.
+  # ------------------------------------------------------------------
+  - phase: ServerProcessing
+    component: /api/chat/route.ts (The "API Mailman")
+    action: "Receives the POST request and extracts the `userInput`."
+    call: "Passes the `userInput` to the `extractAttributesFromText` function."
+    
+    component: genkit.ts (The "AI Brain")
+    action: "Executes the 4-task system prompt on the user's text."
+    tasks:
+      - task1: "Facet Extraction (e.g., `categoria: 'janela'`)."
+      - task2: "Q&A (e.g., `knowledgeBaseAnswer: 'Nossa garantia é de 5 anos.'`)."
+      - task3: "Contact Extraction (e.g., `userName: 'João'`)."
+      - task4: "Handover Intent (e.g., `talkToHuman: true`)."
+    output: "Returns a single, 11-key JSON 'form' where all un-found keys are `null`."
+    response: "The API route returns this JSON form to the client."
+
+  # ------------------------------------------------------------------
+  # PHASE 3: The client orchestrates the response based on the AI's JSON.
+  # ------------------------------------------------------------------
+  - phase: ClientOrchestration
+    component: ChatCoPilot.tsx (The "Orchestrator")
+    action: "Receives the JSON 'form' inside the `handleSendMessage` function."
+    logic: "Executes a strict, prioritized sequence of actions."
+    sequence:
+      - step1_SaveContact:
+          description: "Passively save contact info."
+          check: "if `aiJson.userName`, `userEmail`, or `userPhone` exist."
+          action: "Calls `updateSessionContactInfo` to save to Firestore."
+      
+      - step2_PostAcknowledgment:
+          description: "Post a 'thank you' message."
+          check: "if new contact info was just saved."
+          action: "Adds a 'Grato, [nome]!' bubble to the `bubblesToPost` array."
+      
+      - step3_CheckHandoverIntent:
+          description: "Check for a *new* human handover request."
+          check: "if `aiJson.talkToHuman` is `true`."
+          action: 
+            - "Sets `isHandoverActive.current = true`."
+            - "Checks if contact info *already* exists. If yes, posts the 'whatsapp-link' bubble. If no, posts the handover question ('Qual seu whatsapp?...')."
+            - "Stops further logic by setting `didFollowUp = true`."
+      
+      - step4_CheckHandoverReply:
+          description: "Check for a *reply* to the handover question."
+          check: "if `isHandoverActive.current` is `true`."
+          action:
+            - "Checks if new contact info was just provided (`hasNewContactInfo`)."
+            - "If yes, posts the 'whatsapp-link' bubble and sets `isHandoverActive.current = false`."
+            - "Stops further logic by setting `didFollowUp = true`."
+      
+      - step5_PostQnA:
+          description: "Post a standard Q&A answer."
+          check: "if no handover/follow-up happened AND `knowledgeBaseAnswer` exists."
+          action: "Adds the Q&A text bubble to the `bubblesToPost` array."
+      
+      - step6_UpdateConfigurator:
+          description: "Apply product facets to the configurator."
+          check: "if no handover/follow-up happened."
+          action: "Calls `applyExtractedFacets(aiJson)` on the `ConfiguratorContext`."
+
+  # ------------------------------------------------------------------
+  # PHASE 4: The state loop completes, posting the next question.
+  # ------------------------------------------------------------------
+  - phase: LoopCompletion
+    component: ConfiguratorContext.tsx (State Manager)
+    action: "Receives new facets from `applyExtractedFacets`."
+    call: "`calculateNextUiState` from `configuratorEngine.ts` to get the next step."
+    result: "The engine returns the new `currentQuestion`."
+
+    component: ChatCoPilot.tsx (Orchestrator)
+    action: "A `useEffect` listener detects the change in `currentQuestion` from the context."
+    finalStep: "Posts the new question bubble (e.g., 'Qual sistema de abertura...?')."
