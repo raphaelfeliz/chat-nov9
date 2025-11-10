@@ -1,15 +1,7 @@
 {
   "file_map": [
     {
-      "path": "src/app/api/chat/route.ts",
-      "tags": [],
-      "purpose": "The server-side API endpoint for the chat feature.",
-      "summary": "This file defines the POST request handler for `/api/chat`. It receives the `userInput` from the client (`ChatCoPilot.tsx`), calls the `extractAttributesFromText` function from the Genkit engine, and returns the resulting JSON \"form\" to the client.",
-      "relations": "- This is the \"API mailman.\" - It imports and calls the `extractAttributesFromText` function from `src/core/ai/genkit.ts`. - It is called via `fetch` by `src/features/chat/ChatCoPilot.tsx`.",
-      "imports": "- NextResponse from 'next/server' - extractAttributesFromText from '@/core/ai/genkit'"
-    },
-    {
-      "path": "src/app/layout.tsx",
+      "path": "src/app/(main)/layout.tsx",
       "tags": [],
       "purpose": "Defines the global HTML shell for the entire Next.js application.",
       "summary": "This component wraps all pages with shared UI and context providers. It renders the <ConfiguratorProvider> (from 'core') to make the global state available everywhere. It also renders the persistent <AppHeader> (from 'features') and the global <Toaster> (from 'components/ui').",
@@ -17,12 +9,20 @@
       "imports": "- Metadata from 'next' - ./globals.css - Toaster from '@/components/ui/toaster' - AppHeader from '@/features/header/AppHeader' - ConfiguratorProvider from '@/core/state/ConfiguratorContext'"
     },
     {
-      "path": "src/app/page.tsx",
+      "path": "src/app/(main)/page.tsx",
       "tags": [],
       "purpose": "Defines the main page layout, handling the responsive display of the Configurator and Chat components.",
       "summary": "This component implements the application's primary responsive UI. - On mobile, it uses a state variable ('activeTab') to render tab buttons and toggle between <Configurator /> and <ChatCoPilot />. - On desktop, it switches to a 2-column layout, displaying the main <Configurator /> component and a sticky <ChatCoPilot /> sidebar.",
       "relations": "- This is the main page component rendered inside `src/app/layout.tsx`. - It imports and arranges the two core feature pillars: - `Configurator` from `src/features/configurator/Configurator.tsx`. - `ChatCoPilot` from `src/features/chat/ChatCoPilot.tsx`.",
       "imports": "- useState from 'react' - ChatCoPilot from '@/features/chat/ChatCoPilot' - Configurator from '@/features/configurator/Configurator'"
+    },
+    {
+      "path": "src/app/api/chat/route.ts",
+      "tags": [],
+      "purpose": "The server-side API endpoint for the chat feature.",
+      "summary": "This file defines the POST request handler for `/api/chat`. It receives the `userInput` from the client (`ChatCoPilot.tsx`), calls the `extractAttributesFromText` function from the Genkit engine, and returns the resulting JSON \"form\" to the client.",
+      "relations": "- This is the \"API mailman.\" - It imports and calls the `extractAttributesFromText` function from `src/core/ai/genkit.ts`. - It is called via `fetch` by `src/features/chat/ChatCoPilot.tsx`.",
+      "imports": "- NextResponse from 'next/server' - extractAttributesFromText from '@/core/ai/genkit'"
     },
     {
       "path": "src/components/ui/button.tsx",
@@ -83,10 +83,10 @@
       "exports": "- Product (type) - BASE_PRODUCT_URL (constant) - PRODUCT_CATALOG (constant)"
     },
     {
-      "path": "src/core/persistence/chatHistory.ts",
+      "path": "src/core/persistence/chatService.ts",
       "tags": [],
       "purpose": "To centralize all database read/write interactions for chat history.",
-      "summary": "This file abstracts all Firestore logic for the chat feature. It now provides functions to load/save the parent session (including contact info) and the messages subcollection.",
+      "summary": "This file abstracts all Firestore logic for the chat feature. It provides functions to load/save the parent session (contact info) and the messages subcollection. The `saveMessage` function now accepts and stores the message `variant` to ensure UI consistency on reload (e.g., for 'whatsapp-link' bubbles).",
       "relations": "- Imports the `db` instance from `./firebase.ts`. - Imports types from `./types.ts`. - This file is imported by `src/features/chat/ChatCoPilot.tsx` to load and save its messages.",
       "imports": "- db from './firebase' - ChatMessage, ChatSession from './types' - firebase/firestore functions"
     },
@@ -97,14 +97,6 @@
       "summary": "This file initializes the Firebase app using environment variables and exports the Firestore database instance (`db`). It critically calls `enableIndexedDbPersistence` to ensure the chat history is cached locally, enabling robust offline-first capabilities.",
       "relations": "- This is the root of the persistence layer. - The exported `db` instance is imported by `src/core/persistence/chatHistory.ts` to perform read/write operations.",
       "imports": "- initializeApp from 'firebase/app' - getFirestore, enableIndexedDbPersistence from 'firebase/firestore'"
-    },
-    {
-      "path": "src/core/persistence/types.ts",
-      "tags": [],
-      "purpose": "To define and export all shared data types for chat persistence.",
-      "summary": "This file acts as the single source of truth for persistence-related data structures. It defines the `ChatMessage` type for individual messages and the `ChatSession` type for the parent document, which now includes fields for storing user contact info.",
-      "relations": "- This file is imported by `src/core/persistence/chatHistory.ts`. - It is also imported by `src/features/chat/ChatCoPilot.tsx` to type its local message state.",
-      "imports": "- None"
     },
     {
       "path": "src/core/state/ConfiguratorContext.tsx",
@@ -118,7 +110,7 @@
       "path": "src/features/chat/ChatCoPilot.tsx",
       "tags": [],
       "purpose": "The \"smart\" controller for the AI Chat feature (Pillar 2).",
-      "summary": "This is the \"chat logic folder.\" It connects to the core logic, manages all chat state (loading, message history), and orchestrates the \"Answer-then-Question\" sequence. It consumes the ConfiguratorContext, calls the AI API, and saves to persistence. It passively saves contact info, actively prompts for it, and handles the \"talk to human\" handover flow. This file contains bug fixes for the handover flow logic.",
+      "summary": "This is the \"chat logic folder.\" It connects to the core logic, manages all chat state (loading, message history), and orchestrates the \"Answer-then-Question\" sequence. It consumes the ConfiguratorContext, calls the AI API, and orchestrates persistence by passing complete message objects (including `variant`) to the `chatHistory` service. It passively saves contact info, actively prompts for it, and handles the \"talk to human\" handover flow. This file contains bug fixes for the handover flow logic.",
       "relations": "- It is the \"smart\" parent for this feature. - It is imported by `src/app/page.tsx`. - Consumes `useConfiguratorContext` from `src/core/state/ConfiguratorContext.tsx`. - Imports persistence functions from `src/core/persistence/chatHistory.ts`. - Imports types from `src/core/persistence/types.ts` and `src/core/ai/genkit.ts`. - Renders its \"dumb\" children: `./ui/ChatDisplay.tsx` and `./ui/ChatInput.tsx`.",
       "imports": "- React hooks - Core Context: useConfiguratorContext - Core AI types: ExtractedFacets - Core Persistence: loadSession, saveMessage, createSession, ChatMessage, ChatSession, saveInitialSession, updateSessionContactInfo - UI Components: ChatDisplay, ChatInput - { generateWhatsAppLink } from '@/lib/utils' - { FACET_ORDER } from '@/core/engine/configuratorEngine'"
     },

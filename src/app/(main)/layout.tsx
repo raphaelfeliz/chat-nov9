@@ -24,7 +24,7 @@ IMPORTS:
 */
 
 import type { Metadata } from 'next';
-import './globals.css';
+import '../globals.css';
 // --- REFACTOR: Import from new 'components/ui' path ---
 import { Toaster } from '@/components/ui/toaster';
 // --- REFACTOR: Import from new 'features' path ---

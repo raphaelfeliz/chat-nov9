@@ -8,12 +8,15 @@ SUMMARY: This file abstracts all Firestore logic for the chat feature.
          and the messages subcollection. The `saveMessage` function now
          accepts and stores the message `variant` to ensure UI
          consistency on reload (e.g., for 'whatsapp-link' bubbles).
+         It also includes `loadAllSessionSummaries` for the admin panel.
 
 RELATES TO OTHER FILES:
 - Imports the `db` instance from `./firebase.ts`.
 - Imports types from `./types.ts`.
 - This file is imported by `src/features/chat/ChatCoPilot.tsx` to
   load and save its messages.
+- This file is imported by `src/app/(admin)/admin/page.tsx` to
+  load all session data.
 
 IMPORTS:
 - db from './firebase'
@@ -164,6 +167,40 @@ export async function updateSessionContactInfo(
     await setDoc(sessionRef, contactData, { merge: true });
   } catch (e) {
     console.error('[chatHistory] ❌ Error updating contact info: ', e);
+  }
+}
+
+/**
+ * --- NEW (Admin Panel) ---
+ * Loads a summary of all chat sessions for the admin panel.
+ * Does NOT load the 'messages' subcollection.
+ */
+export async function loadAllSessionSummaries(): Promise<ChatSession[]> {
+  try {
+    const sessionsQuery = query(
+      collection(db, 'chats'),
+      orderBy('updatedAt', 'desc')
+    );
+    const querySnapshot = await getDocs(sessionsQuery);
+
+    const sessions: ChatSession[] = querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        sessionId: doc.id,
+        createdAt: normalizeTimestamp(data.createdAt),
+        updatedAt: normalizeTimestamp(data.updatedAt),
+        meta: data.meta || { version: 1, device: 'web' },
+        userName: data.userName || null,
+        userEmail: data.userEmail || null,
+        userPhone: data.userPhone || null,
+        messages: [], // Message list is intentionally empty
+      } as ChatSession;
+    });
+
+    return sessions;
+  } catch (err) {
+    console.error('[chatHistory] ❌ Firestore admin load error:', err);
+    return [];
   }
 }
 
